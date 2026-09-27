@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Event Check-in — Form & QR Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --ink:#1B2320; --paper:#F7F4EC; --emerald:#1F6F5C; --emerald-d:#154F42;
+    --clay:#B5652F; --line:#DCD5C4; --line-soft:#E9E4D6; --card:#FFFFFF;
+    --muted:#6B6357;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#EDE9DD; --paper:#15181A; --card:#1E2225; --line:#33383A; --line-soft:#2A2E30; --muted:#9A9488;
+      --emerald:#3FA98A; --emerald-d:#2E8069; --clay:#D48653;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#EDE9DD; --paper:#15181A; --card:#1E2225; --line:#33383A; --line-soft:#2A2E30; --muted:#9A9488;
+    --emerald:#3FA98A; --emerald-d:#2E8069; --clay:#D48653;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{font-family:'Fraunces', Georgia, serif}
+
+  .topbar{
+    padding:16px 20px calc(14px + env(safe-area-inset-top,0px));
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  .topbar h1{font-size:1.3rem; font-weight:600; margin:0}
+  .topbar span{color:var(--muted); font-size:0.85rem}
+
+  .wrap{
+    display:grid; grid-template-columns: 1.1fr 0.9fr; gap:0;
+    max-width:1180px; margin:0 auto;
+  }
+  @media (max-width: 860px){ .wrap{ grid-template-columns: 1fr; } }
+
+  .pane{ padding:24px 22px 60px; }
+  .left{ border-right:1px solid var(--line); }
+  @media (max-width: 860px){ .left{ border-right:none; border-bottom:1px solid var(--line);} }
+
+  section{ margin-bottom:26px; }
+  label.field-label{ display:block; font-size:0.8rem; color:var(--muted); margin-bottom:5px; }
+  input[type=text], input[type=date], input[type=url], select{
+    width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:6px;
+    background:var(--card); color:var(--ink); font-family:inherit; font-size:0.92rem;
+  }
+  input:focus, select:focus{ outline:2px solid var(--emerald); outline-offset:1px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:480px){ .row2{ grid-template-columns:1fr; } }
+  .row2 > div{ margin-bottom:12px; }
+
+  h2.section-title{ font-size:1rem; font-weight:600; margin:0 0 12px; display:flex; align-items:center; justify-content:space-between; }
+
+  .field-card{
+    background:var(--card); border:1px solid var(--line-soft); border-radius:8px;
+    padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;
+  }
+  .field-card .fname{ flex:1; font-size:0.9rem; }
+  .field-card .ftype{ font-size:0.75rem; color:var(--muted); }
+  .field-card button.rm{
+    border:none; background:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:2px 6px;
+  }
+  .field-card button.rm:hover{ color:var(--clay); }
+  .locked{ opacity:0.72; }
+  .hidden-field{ opacity:0.55; border-style:dashed; }
+  .field-actions{ display:flex; align-items:center; gap:2px; flex:none; }
+  .field-actions button{
+    border:none; background:none; color:var(--muted); cursor:pointer; font-size:0.95rem; padding:3px 6px; border-radius:5px;
+  }
+  .field-actions button:hover{ background:var(--line-soft); color:var(--ink); }
+  .field-actions button.danger:hover{ color:var(--clay); }
+  .field-edit{ width:100%; }
+  .field-edit-row{ display:flex; gap:8px; margin-bottom:8px; }
+  .field-edit-row input{ flex:1; }
+  .field-edit-row select{ width:150px; }
+  .field-edit textarea{
+    width:100%; min-height:60px; padding:8px 10px; border:1px solid var(--line); border-radius:6px;
+    background:var(--paper); color:var(--ink); font-family:inherit; font-size:0.85rem; margin-bottom:8px; resize:vertical;
+  }
+  .field-edit-actions{ display:flex; gap:8px; }
+
+  .add-field-row{ display:flex; gap:8px; margin-top:10px; }
+  .add-field-row input{ flex:1; }
+  .add-field-row select{ width:120px; }
+
+  .options-panel{
+    margin-top:10px; padding:12px; border:1px dashed var(--line); border-radius:8px; background:var(--card);
+  }
+  .options-panel textarea{
+    width:100%; min-height:70px; padding:9px 11px; border:1px solid var(--line); border-radius:6px;
+    background:var(--paper); color:var(--ink); font-family:inherit; font-size:0.86rem; resize:vertical;
+  }
+  .options-panel textarea:focus{ outline:2px solid var(--emerald); outline-offset:1px; }
+  .options-actions{ display:flex; align-items:center; gap:10px; margin-top:8px; }
+  .options-actions .hint{ font-size:0.75rem; color:var(--muted); }
+
+  button.btn{
+    border:none; border-radius:7px; padding:10px 16px; font-family:inherit; font-size:0.88rem;
+    font-weight:500; cursor:pointer; transition:transform .08s ease;
+  }
+  button.btn:active{ transform:scale(0.97); }
+  .btn-emerald{ background:var(--emerald); color:#fff; }
+  .btn-emerald:hover{ background:var(--emerald-d); }
+  .btn-ghost{ background:transparent; border:1px solid var(--line); color:var(--ink); }
+  .btn-ghost:hover{ border-color:var(--muted); }
+
+  .generate-row{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+
+  /* right pane: phone preview + QR */
+  .right{ background:var(--paper); position:sticky; top:0; align-self:start; }
+  .phone{
+    width:270px; margin:6px auto 0; border:8px solid var(--ink); border-radius:34px;
+    background:var(--card); overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,0.16);
+  }
+  .phone-screen{ padding:18px 16px 22px; min-height:400px; }
+  .phone-notch{ height:18px; background:var(--ink); border-radius:0 0 12px 12px; width:90px; margin:0 auto; }
+  .ev-name{ font-size:1.05rem; font-weight:600; margin:2px 0 2px; }
+  .ev-meta{ font-size:0.72rem; color:var(--muted); margin-bottom:14px; }
+  .pf-field{ margin-bottom:10px; }
+  .pf-field label{ display:block; font-size:0.72rem; color:var(--muted); margin-bottom:3px; }
+  .pf-input{ width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:5px; background:var(--paper); font-size:0.82rem; color:var(--ink); }
+  .pf-submit{ width:100%; margin-top:6px; background:var(--emerald); color:#fff; border:none; padding:9px; border-radius:6px; font-size:0.85rem; font-weight:500; }
+  .pf-upload{
+    display:flex; align-items:center; gap:8px; width:100%; padding:9px 10px; border:1px dashed var(--line);
+    border-radius:6px; background:var(--paper); font-size:0.78rem; color:var(--muted);
+  }
+  .pf-upload .icon{ font-size:1rem; flex:none; }
+
+  .qr-card{
+    max-width:270px; margin:26px auto 0; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:18px; text-align:center;
+  }
+  .qr-card h3{ font-size:0.95rem; margin:0 0 4px; font-weight:600; }
+  .qr-card p{ font-size:0.75rem; color:var(--muted); margin:0 0 14px; }
+  #qrbox{ display:flex; justify-content:center; margin-bottom:10px; }
+  #qrbox img, #qrbox canvas{ border-radius:6px; }
+  .qr-actions{ display:flex; gap:8px; justify-content:center; margin-top:8px;}
+  .empty-note{ text-align:center; color:var(--muted); font-size:0.82rem; padding:40px 20px; }
+
+  .event-strip{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:22px; }
+  .event-chip{
+    display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:20px;
+    border:1px solid var(--line); background:var(--card); cursor:pointer; font-size:0.82rem;
+    color:var(--muted); transition:border-color .12s ease, color .12s ease;
+  }
+  .event-chip:hover{ border-color:var(--emerald); }
+  .event-chip.active{ border-color:var(--emerald); color:var(--ink); background:var(--card); box-shadow:0 0 0 1px var(--emerald) inset; }
+  .event-chip .dot{ width:6px; height:6px; border-radius:50%; background:var(--clay); flex:none; }
+  .event-chip.active .dot{ background:var(--emerald); }
+  .event-chip .rm-ev{ border:none; background:none; color:var(--muted); cursor:pointer; font-size:0.85rem; padding:0 2px; line-height:1; }
+  .event-chip .rm-ev:hover{ color:var(--clay); }
+  .event-chip.new{ border-style:dashed; color:var(--emerald); }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:var(--paper); padding:9px 16px; border-radius:7px; font-size:0.82rem;
+    opacity:0; transition:all .25s ease; pointer-events:none;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .header-format-row{ display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .header-format-row select{ width:auto; }
+  .chk{ font-size:0.82rem; display:flex; align-items:center; gap:5px; color:var(--muted); }
+  .header-img-preview{ display:flex; align-items:center; gap:10px; margin-top:10px; }
+  .header-img-preview img{ max-width:110px; max-height:70px; border-radius:6px; border:1px solid var(--line); object-fit:cover; }
+
+  .pf-header{ margin:0 0 12px; line-height:1.3; }
+  .pf-header.sm{ font-size:0.82rem; }
+  .pf-header.md{ font-size:1.05rem; }
+  .pf-header.lg{ font-size:1.3rem; font-family:'Fraunces', serif; }
+  .pf-header-img{ width:100%; max-height:110px; object-fit:cover; border-radius:8px; margin-bottom:12px; display:block; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Registration Form &amp; QR Builder</h1>
+  <span>Set up an event's check-in form once — attendees scan, fill, and their entry is saved.</span>
+</div>
+
+<div class="wrap">
+  <div class="pane left">
+
+    <section>
+      <h2 class="section-title">Your events</h2>
+      <div class="event-strip" id="eventStrip"></div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Event details</h2>
+      <div class="row2">
+        <div>
+          <label class="field-label">Event name</label>
+          <input type="text" id="evName" placeholder="e.g. Leadership Summit 2026">
+        </div>
+        <div>
+          <label class="field-label">Date</label>
+          <input type="date" id="evDate">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label class="field-label">Venue</label>
+          <input type="text" id="evVenue" placeholder="e.g. Hyatt Regency, Pune">
+        </div>
+        <div>
+          <label class="field-label">WhatsApp group invite link (optional)</label>
+          <input type="url" id="evWA" placeholder="https://chat.whatsapp.com/...">
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Form header</h2>
+      <label class="field-label">Header type</label>
+      <select id="headerType" onchange="onHeaderTypeChange()">
+        <option value="none">None</option>
+        <option value="text">Text (with formatting)</option>
+        <option value="image">Image / logo upload</option>
+      </select>
+
+      <div id="headerTextControls" style="display:none; margin-top:12px;">
+        <label class="field-label">Header text</label>
+        <input type="text" id="headerText" placeholder="e.g. Welcome to Leadership Summit 2026">
+        <div class="header-format-row">
+          <label class="chk"><input type="checkbox" id="headerBold"> Bold</label>
+          <select id="headerAlign">
+            <option value="left">Align left</option>
+            <option value="center">Align center</option>
+            <option value="right">Align right</option>
+          </select>
+          <select id="headerSize">
+            <option value="sm">Small</option>
+            <option value="md" selected>Medium</option>
+            <option value="lg">Large</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="headerImageControls" style="display:none; margin-top:12px;">
+        <button class="btn btn-ghost" type="button" onclick="document.getElementById('headerImageFile').click()">Upload image</button>
+        <input type="file" id="headerImageFile" accept="image/*" style="display:none" onchange="handleHeaderImage(event)">
+        <div class="header-img-preview" id="headerImagePreviewWrap" style="display:none;">
+          <img id="headerImagePreviewImg" alt="Header preview">
+          <button class="btn btn-ghost" type="button" onclick="removeHeaderImage()">Remove</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Form fields</h2>
+      <div id="fieldList"></div>
+      <div class="add-field-row">
+        <input type="text" id="newFieldName" placeholder="Add a field, e.g. Company name">
+        <select id="newFieldType" onchange="toggleOptionsPanel()">
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="email">Email</option>
+          <option value="tel">Phone</option>
+          <option value="date">Date</option>
+          <option value="fullname">Full Name</option>
+          <option value="address">Address</option>
+          <option value="gender">Gender</option>
+          <option value="url">Link (URL)</option>
+          <option value="image">Photo Upload (Image)</option>
+          <option value="file">Document Upload (PDF/Word)</option>
+          <option value="select">Dropdown Options</option>
+          <option value="percentage">Percentage (%) with Decimal</option>
+        </select>
+        <button class="btn btn-ghost" onclick="addField()">Add</button>
+      </div>
+      <div class="options-panel" id="optionsPanel" style="display:none;">
+        <label class="field-label">Dropdown options — one per line, or import a file</label>
+        <textarea id="newFieldOptions" placeholder="Mumbai&#10;Pune&#10;Delhi"></textarea>
+        <div class="options-actions">
+          <button class="btn btn-ghost" type="button" onclick="document.getElementById('importFile').click()">Import from file</button>
+          <span class="hint">.csv or .txt — comma or line separated</span>
+          <input type="file" id="importFile" accept=".csv,.txt,text/plain,text/csv" style="display:none" onchange="handleFileImport(event)">
+        </div>
+      </div>
+    </section>
+
+    <div class="generate-row">
+      <button class="btn btn-emerald" onclick="generate()">Generate form + QR code</button>
+      <button class="btn btn-ghost" onclick="resetAll()">Reset</button>
+    </div>
+  </div>
+
+  <div class="pane right">
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen" id="previewScreen">
+        <div class="empty-note">Fill in event details on the left — this is what attendees will see after scanning the QR.</div>
+      </div>
+    </div>
+
+    <div class="qr-card" id="qrCard" style="display:none;">
+      <h3>Scan to register</h3>
+      <p id="qrSub">Place this at the entrance / on the invite</p>
+      <div id="qrbox"></div>
+      <div class="qr-actions">
+        <button class="btn btn-ghost" onclick="downloadQR()">Download PNG</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Saved</div>
+
+<script>
+const STORE_KEY = 'eventFormBuilderStore';
+let store = { events:{}, order:[], activeId:null };
+let fields = [];
+let qrObj = null;
+
+function defaultFields(){
+  return [
+    {name:"Full name", type:"text", locked:true},
+    {name:"Phone number", type:"tel", locked:true},
+    {name:"Email", type:"email", locked:true},
+  ];
+}
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function makeEvent(name){
+  return { id:uid(), name: name || 'Untitled event', date:'', venue:'', wa:'', fields:defaultFields(), generated:false, slug:'',
+    header: { type:'none', text:'', bold:false, align:'left', size:'md', imageData:null } };
+}
+
+function loadStore(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ store = JSON.parse(raw); }
+  }catch(e){}
+  if(!store.order || store.order.length === 0){
+    const ev = makeEvent('Untitled event');
+    store = { events:{ [ev.id]: ev }, order:[ev.id], activeId: ev.id };
+  }
+  if(!store.activeId || !store.events[store.activeId]) store.activeId = store.order[0];
+}
+function saveStore(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }catch(e){} }
+
+function syncFormToActive(){
+  const ev = store.events[store.activeId];
+  if(!ev) return;
+  ev.name = document.getElementById('evName').value;
+  ev.date = document.getElementById('evDate').value;
+  ev.venue = document.getElementById('evVenue').value;
+  ev.wa = document.getElementById('evWA').value;
+  ev.fields = fields;
+  const existingImageData = (ev.header && ev.header.imageData) || null;
+  ev.header = {
+    type: document.getElementById('headerType').value,
+    text: document.getElementById('headerText').value,
+    bold: document.getElementById('headerBold').checked,
+    align: document.getElementById('headerAlign').value,
+    size: document.getElementById('headerSize').value,
+    imageData: existingImageData,
+  };
+}
+
+function populateFormFromEvent(ev){
+  document.getElementById('evName').value = ev.name === 'Untitled event' ? '' : ev.name;
+  document.getElementById('evDate').value = ev.date || '';
+  document.getElementById('evVenue').value = ev.venue || '';
+  document.getElementById('evWA').value = ev.wa || '';
+  fields = ev.fields || defaultFields();
+
+  const h = ev.header || { type:'none', text:'', bold:false, align:'left', size:'md', imageData:null };
+  document.getElementById('headerType').value = h.type;
+  document.getElementById('headerText').value = h.text || '';
+  document.getElementById('headerBold').checked = !!h.bold;
+  document.getElementById('headerAlign').value = h.align || 'left';
+  document.getElementById('headerSize').value = h.size || 'md';
+  document.getElementById('headerTextControls').style.display = h.type === 'text' ? 'block' : 'none';
+  document.getElementById('headerImageControls').style.display = h.type === 'image' ? 'block' : 'none';
+  if(h.imageData){
+    document.getElementById('headerImagePreviewImg').src = h.imageData;
+    document.getElementById('headerImagePreviewWrap').style.display = 'flex';
+  } else {
+    document.getElementById('headerImagePreviewWrap').style.display = 'none';
+  }
+
+  renderFields();
+  buildPreview();
+  if(ev.generated && ev.slug){ showQR(ev.slug, ev.name); }
+  else { hideQR(); }
+}
+
+function renderEventList(){
+  const strip = document.getElementById('eventStrip');
+  strip.innerHTML = '';
+  store.order.forEach(id => {
+    const ev = store.events[id];
+    if(!ev) return;
+    const chip = document.createElement('div');
+    chip.className = 'event-chip' + (id === store.activeId ? ' active' : '');
+    chip.onclick = () => selectEvent(id);
+    const canDelete = store.order.length > 1;
+    chip.innerHTML = `<span class="dot"></span><span>${escapeHtml(ev.name || 'Untitled event')}</span>` +
+      (canDelete ? `<button class="rm-ev" title="Delete event">✕</button>` : '');
+    if(canDelete){
+      chip.querySelector('.rm-ev').onclick = (e) => { e.stopPropagation(); deleteEvent(id); };
+    }
+    strip.appendChild(chip);
+  });
+  const addChip = document.createElement('div');
+  addChip.className = 'event-chip new';
+  addChip.textContent = '+ New event';
+  addChip.onclick = createEvent;
+  strip.appendChild(addChip);
+}
+
+function selectEvent(id){
+  if(id === store.activeId) return;
+  syncFormToActive();
+  saveStore();
+  store.activeId = id;
+  populateFormFromEvent(store.events[id]);
+  renderEventList();
+  saveStore();
+}
+
+function createEvent(){
+  syncFormToActive();
+  const ev = makeEvent('Untitled event');
+  store.events[ev.id] = ev;
+  store.order.push(ev.id);
+  store.activeId = ev.id;
+  populateFormFromEvent(ev);
+  renderEventList();
+  saveStore();
+  showToast('New event created');
+}
+
+function deleteEvent(id){
+  if(store.order.length <= 1) return;
+  if(!confirm('Delete this event and its form/QR?')) return;
+  store.order = store.order.filter(x => x !== id);
+  delete store.events[id];
+  if(store.activeId === id){
+    store.activeId = store.order[0];
+    populateFormFromEvent(store.events[store.activeId]);
+  }
+  renderEventList();
+  saveStore();
+  showToast('Event deleted');
+}
+
+let editingIndex = null;
+
+function renderFields(){
+  const list = document.getElementById('fieldList');
+  list.innerHTML = '';
+  fields.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'field-card' + (f.locked ? ' locked' : '') + (f.hidden ? ' hidden-field' : '');
+    if(editingIndex === i){
+      el.innerHTML = fieldEditHtml(f, i);
+      list.appendChild(el);
+      wireEditForm(f, i);
+      return;
+    }
+    const labels = {
+      'text': 'Text', 'number': 'Number', 'email': 'Email', 'tel': 'Phone',
+      'date': 'Date', 'fullname': 'Full Name', 'address': 'Address', 'gender': 'Gender',
+      'url': 'Link (URL)', 'image': 'Photo Upload (Image)', 'file': 'Document Upload (PDF/Word)',
+      'select': `Dropdown Options · ${(f.options||[]).length} options`,
+      'percentage': 'Percentage (%) with Decimal'
+    };
+    const typeLabel = labels[f.type] || f.type;
+    el.innerHTML = `<span class="fname">${escapeHtml(f.name)}${f.hidden ? ' <span style="color:var(--muted);font-size:0.72rem;">(hidden)</span>' : ''}</span>` +
+      `<span class="ftype">${typeLabel}</span>` +
+      `<span class="field-actions">` +
+        `<button title="${f.hidden ? 'Show on form' : 'Hide from form'}" data-act="toggle" data-i="${i}">${f.hidden ? '🚫' : '👁'}</button>` +
+        `<button title="Edit field" data-act="edit" data-i="${i}">✎</button>` +
+        (f.locked ? '' : `<button class="danger" title="Delete field" data-act="delete" data-i="${i}">✕</button>`) +
+      `</span>`;
+    list.appendChild(el);
+  });
+  list.querySelectorAll('[data-act]').forEach(btn => {
+    const i = Number(btn.getAttribute('data-i'));
+    const act = btn.getAttribute('data-act');
+    btn.onclick = () => {
+      if(act === 'toggle') toggleFieldHidden(i);
+      else if(act === 'edit') { editingIndex = i; renderFields(); }
+      else if(act === 'delete') removeField(i);
+    };
+  });
+}
+
+function fieldEditHtml(f, i){
+  const optsList = [
+    {v:'text', l:'Text'}, {v:'number', l:'Number'}, {v:'email', l:'Email'}, {v:'tel', l:'Phone'}, 
+    {v:'date', l:'Date'}, {v:'fullname', l:'Full Name'}, {v:'address', l:'Address'}, {v:'gender', l:'Gender'}, 
+    {v:'url', l:'Link (URL)'}, {v:'image', l:'Photo Upload (Image)'}, {v:'file', l:'Document Upload (PDF/Word)'}, 
+    {v:'select', l:'Dropdown Options'}, {v:'percentage', l:'Percentage (%) with Decimal'}
+  ];
+  const typeOptions = optsList.map(t =>
+    `<option value="${t.v}" ${f.type===t.v?'selected':''}>${t.l}</option>`
+  ).join('');
+  return `<div class="field-edit">
+    <div class="field-edit-row">
+      <input type="text" id="editName-${i}" value="${escapeHtml(f.name)}">
+      <select id="editType-${i}" ${f.locked ? 'disabled' : ''}>${typeOptions}</select>
+    </div>
+    <div id="editOptionsWrap-${i}" style="display:${f.type==='select' ? 'block':'none'};">
+      <textarea id="editOptions-${i}" placeholder="One option per line">${(f.options||[]).join('\n')}</textarea>
+    </div>
+    <div class="field-edit-actions">
+      <button class="btn btn-emerald" data-save="${i}">Save</button>
+      <button class="btn btn-ghost" data-cancel="${i}">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function wireEditForm(f, i){
+  const typeSel = document.getElementById(`editType-${i}`);
+  const optWrap = document.getElementById(`editOptionsWrap-${i}`);
+  typeSel.onchange = () => { optWrap.style.display = typeSel.value === 'select' ? 'block' : 'none'; };
+  document.querySelector(`[data-save="${i}"]`).onclick = () => saveFieldEdit(i);
+  document.querySelector(`[data-cancel="${i}"]`).onclick = () => { editingIndex = null; renderFields(); };
+}
+
+function saveFieldEdit(i){
+  const f = fields[i];
+  const name = document.getElementById(`editName-${i}`).value.trim();
+  if(!name){ showToast('Field name can\'t be empty'); return; }
+  f.name = name;
+  if(!f.locked) f.type = document.getElementById(`editType-${i}`).value;
+  if(f.type === 'select'){
+    const opts = parseOptionsText(document.getElementById(`editOptions-${i}`).value);
+    if(opts.length === 0){ showToast('Add at least one dropdown option'); return; }
+    f.options = opts;
+  } else {
+    delete f.options;
+  }
+  editingIndex = null;
+  renderFields();
+  buildPreview();
+  syncFormToActive();
+  saveStore();
+  showToast('Field updated');
+}
+
+function toggleFieldHidden(i){
+  fields[i].hidden = !fields[i].hidden;
+  renderFields();
+  buildPreview();
+  syncFormToActive();
+  saveStore();
+}
+
+
+function onHeaderTypeChange(){
+  const t = document.getElementById('headerType').value;
+  document.getElementById('headerTextControls').style.display = t === 'text' ? 'block' : 'none';
+  document.getElementById('headerImageControls').style.display = t === 'image' ? 'block' : 'none';
+  syncFormToActive();
+  buildPreview();
+  saveStore();
+}
+
+function handleHeaderImage(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const ev = store.events[store.activeId];
+    if(!ev.header) ev.header = { type:'image', text:'', bold:false, align:'left', size:'md' };
+    ev.header.type = 'image';
+    ev.header.imageData = reader.result;
+    document.getElementById('headerImagePreviewImg').src = reader.result;
+    document.getElementById('headerImagePreviewWrap').style.display = 'flex';
+    buildPreview();
+    saveStore();
+    showToast('Header image uploaded');
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function removeHeaderImage(){
+  const ev = store.events[store.activeId];
+  if(ev.header) ev.header.imageData = null;
+  document.getElementById('headerImagePreviewWrap').style.display = 'none';
+  buildPreview();
+  saveStore();
+}
+
+function toggleOptionsPanel(){
+  const isSelect = document.getElementById('newFieldType').value === 'select';
+  document.getElementById('optionsPanel').style.display = isSelect ? 'block' : 'none';
+}
+
+function parseOptionsText(text){
+  return text.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
+}
+
+function handleFileImport(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const opts = parseOptionsText(String(reader.result));
+    document.getElementById('newFieldOptions').value = opts.join('\n');
+    showToast(`Imported ${opts.length} option(s)`);
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function addField(){
+  const nameInput = document.getElementById('newFieldName');
+  const typeInput = document.getElementById('newFieldType');
+  const name = nameInput.value.trim();
+  if(!name) return;
+  const field = {name, type: typeInput.value, locked:false};
+  if(field.type === 'select'){
+    const opts = parseOptionsText(document.getElementById('newFieldOptions').value);
+    if(opts.length === 0){ showToast('Add at least one dropdown option'); return; }
+    field.options = opts;
+  }
+  fields.push(field);
+  nameInput.value = '';
+  document.getElementById('newFieldOptions').value = '';
+  document.getElementById('optionsPanel').style.display = 'none';
+  typeInput.value = 'text';
+  renderFields();
+  buildPreview();
+  syncFormToActive();
+  saveStore();
+}
+function removeField(i){
+  fields.splice(i,1);
+  renderFields();
+  buildPreview();
+  syncFormToActive();
+  saveStore();
+}
+
+function buildPreview(){
+  const name = document.getElementById('evName').value.trim() || 'Untitled event';
+  const date = document.getElementById('evDate').value;
+  const venue = document.getElementById('evVenue').value.trim();
+  const meta = [date, venue].filter(Boolean).join(' · ');
+
+  const ev = store.events[store.activeId];
+  const headerType = document.getElementById('headerType').value;
+  let html = '';
+  if(headerType === 'text'){
+    const text = document.getElementById('headerText').value.trim();
+    if(text){
+      const bold = document.getElementById('headerBold').checked;
+      const align = document.getElementById('headerAlign').value;
+      const size = document.getElementById('headerSize').value;
+      html += `<div class="pf-header ${size}" style="text-align:${align};font-weight:${bold ? 700 : 500};">${escapeHtml(text)}</div>`;
+    }
+  } else if(headerType === 'image' && ev && ev.header && ev.header.imageData){
+    html += `<img class="pf-header-img" src="${ev.header.imageData}" alt="">`;
+  }
+
+  html += `<div class="ev-name">${escapeHtml(name)}</div>`;
+  html += `<div class="ev-meta">${escapeHtml(meta || 'Date & venue')}</div>`;
+  fields.forEach(f => {
+    if(f.hidden) return;
+    if(f.type === 'select'){
+      const opts = (f.options || []).map(o => `<option>${escapeHtml(o)}</option>`).join('');
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><select class="pf-input"><option>Choose…</option>${opts}</select></div>`;
+    } else if(f.type === 'image'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><div class="pf-upload"><span class="icon">📷</span><span>Tap to take / upload photo</span></div></div>`;
+    } else if(f.type === 'file'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><div class="pf-upload"><span class="icon">📎</span><span>Tap to upload document(s)</span></div></div>`;
+    } else if(f.type === 'address'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><textarea class="pf-input" rows="2"></textarea></div>`;
+    } else if(f.type === 'percentage'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><input class="pf-input" type="number" step="0.01" placeholder="0.00"></div>`;
+    } else if(f.type === 'gender'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><select class="pf-input"><option>Choose…</option><option>Male</option><option>Female</option><option>Other</option><option>Prefer not to say</option></select></div>`;
+    } else if(f.type === 'fullname'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><input class="pf-input" type="text"></div>`;
+    } else {
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><input class="pf-input" type="${f.type}" placeholder=""></div>`;
+    }
+  });
+  html += `<button class="pf-submit">Submit &amp; check in</button>`;
+  document.getElementById('previewScreen').innerHTML = html;
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function generate(){
+  buildPreview();
+  const name = document.getElementById('evName').value.trim() || 'Untitled event';
+  const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'event';
+  const slug = `${baseSlug}-${store.activeId}`;
+
+  const ev = store.events[store.activeId];
+  ev.generated = true;
+  ev.slug = slug;
+  syncFormToActive();
+  saveStore();
+  renderEventList();
+
+  showQR(slug, name);
+  showToast('Form + QR generated');
+}
+
+function showQR(slug, name){
+  const payload = `https://checkin.example.com/r/${slug}`;
+  document.getElementById('qrCard').style.display = 'block';
+  document.getElementById('qrSub').textContent = `Links to the ${name || 'event'} registration form`;
+  const box = document.getElementById('qrbox');
+  box.innerHTML = '';
+  qrObj = new QRCode(box, { text: payload, width:160, height:160, colorDark:"#1B2320", colorLight:"#ffffff" });
+}
+function hideQR(){
+  document.getElementById('qrCard').style.display = 'none';
+  document.getElementById('qrbox').innerHTML = '';
+}
+
+function downloadQR(){
+  const canvas = document.querySelector('#qrbox canvas');
+  const img = document.querySelector('#qrbox img');
+  const src = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+  if(!src) return;
+  const a = document.createElement('a');
+  a.href = src;
+  a.download = 'event-checkin-qr.png';
+  a.click();
+}
+
+function resetAll(){
+  if(!confirm('Clear this event\'s details, fields and QR?')) return;
+  const ev = store.events[store.activeId];
+  ev.name = 'Untitled event'; ev.date=''; ev.venue=''; ev.wa='';
+  ev.fields = defaultFields(); ev.generated = false; ev.slug = '';
+  populateFormFromEvent(ev);
+  renderEventList();
+  saveStore();
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function wireLiveSync(){
+  ['evName','evDate','evVenue','evWA'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      syncFormToActive();
+      buildPreview();
+      saveStore();
+      if(id === 'evName') renderEventList();
+    });
+  });
+  ['headerText','headerBold','headerAlign','headerSize'].forEach(id => {
+    const el = document.getElementById(id);
+    const evt = (id === 'headerBold' || id === 'headerAlign' || id === 'headerSize') ? 'change' : 'input';
+    el.addEventListener(evt, () => {
+      syncFormToActive();
+      buildPreview();
+      saveStore();
+    });
+  });
+}
+
+loadStore();
+renderEventList();
+populateFormFromEvent(store.events[store.activeId]);
+wireLiveSync();
+</script>
+</body>
+</html>
