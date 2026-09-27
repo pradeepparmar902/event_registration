@@ -206,8 +206,7 @@
 
             let regNumber = null;
             if (eventData.regSettings) {
-                const prefix = eventData.regSettings.prefix || 'EVT';
-                const year = eventData.regSettings.year || new Date().getFullYear();
+                const format = eventData.regSettings.format || 'EVT {number} 2026';
                 
                 try {
                     regNumber = await window.runTransaction(window.db, async (transaction) => {
@@ -218,12 +217,14 @@
                             nextNum = (counterDoc.data().count || 0) + 1;
                         }
                         transaction.set(counterRef, { count: nextNum }, { merge: true });
-                        // Format: PREFIX-YEAR-0001
-                        return `${prefix}-${year}-${String(nextNum).padStart(4, '0')}`;
+                        
+                        const paddedNum = String(nextNum).padStart(4, '0');
+                        return format.replace('{number}', paddedNum);
                     });
                 } catch(e) {
                     console.error("Counter transaction failed:", e);
-                    regNumber = `${prefix}-${year}-${Math.floor(Math.random()*10000)}`; // fallback
+                    const randomNum = String(Math.floor(Math.random()*10000)).padStart(4, '0');
+                    regNumber = format.replace('{number}', randomNum);
                 }
                 dataObj['Registration Number'] = regNumber;
             }

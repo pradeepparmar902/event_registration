@@ -231,13 +231,9 @@
     <section>
       <h2 class="section-title">Registration Number Settings</h2>
       <div class="row2">
-        <div>
-          <label class="field-label">Prefix (e.g. EDU)</label>
-          <input type="text" id="regPrefix" placeholder="EDU" value="EVT">
-        </div>
-        <div>
-          <label class="field-label">Year (e.g. 2026)</label>
-          <input type="text" id="regYear" placeholder="2026" value="2026">
+        <div style="width:100%;">
+          <label class="field-label">Format Template (Use <strong>{number}</strong> where the counter should go)</label>
+          <input type="text" id="regFormat" placeholder="EVT {number} 2026" value="EVT {number} 2026">
         </div>
       </div>
     </section>
@@ -432,7 +428,7 @@ function uid(){ return Math.random().toString(36).slice(2,9); }
 function makeEvent(name){
   return { id:uid(), name: name || 'Untitled event', date:'', venue:'', wa:'', fields:defaultFields(), generated:false, slug:'',
     header: { type:'none', text:'', bold:false, align:'left', size:'md', imageData:null },
-    regSettings: { prefix: 'EVT', year: '2026' } };
+    regSettings: { format: 'EVT {number} 2026' } };
 }
 
 function loadStore(){
@@ -442,7 +438,12 @@ function loadStore(){
       store = JSON.parse(raw); 
       Object.values(store.events || {}).forEach(ev => {
         if(ev.fields) ev.fields.forEach(f => f.locked = false);
-        if(!ev.regSettings) ev.regSettings = { prefix: 'EVT', year: '2026' };
+        if(!ev.regSettings) ev.regSettings = { format: 'EVT {number} 2026' };
+        if(ev.regSettings.prefix) { // Migrate old data
+            ev.regSettings.format = `${ev.regSettings.prefix} {number} ${ev.regSettings.year}`;
+            delete ev.regSettings.prefix;
+            delete ev.regSettings.year;
+        }
       });
     }
   }catch(e){}
@@ -462,8 +463,7 @@ function syncFormToActive(){
   ev.venue = document.getElementById('evVenue').value;
   ev.wa = document.getElementById('evWA').value;
   ev.regSettings = {
-    prefix: document.getElementById('regPrefix').value,
-    year: document.getElementById('regYear').value
+    format: document.getElementById('regFormat').value
   };
   ev.fields = fields;
   const existingImageData = (ev.header && ev.header.imageData) || null;
@@ -484,8 +484,7 @@ function populateFormFromEvent(ev){
   document.getElementById('evWA').value = ev.wa || '';
   
   if(ev.regSettings){
-    document.getElementById('regPrefix').value = ev.regSettings.prefix || '';
-    document.getElementById('regYear').value = ev.regSettings.year || '';
+    document.getElementById('regFormat').value = ev.regSettings.format || 'EVT {number} 2026';
   }
 
   fields = ev.fields || defaultFields();
