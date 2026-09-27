@@ -73,8 +73,15 @@
     if (!slug) {
         document.getElementById('loading').textContent = "Invalid QR code. No event specified.";
     } else {
-        // Wait a tiny bit for firebase module to load
-        setTimeout(fetchEvent, 200);
+        waitForFirebase();
+    }
+
+    function waitForFirebase() {
+        if (window.db && window.getDoc) {
+            fetchEvent();
+        } else {
+            setTimeout(waitForFirebase, 100);
+        }
     }
 
     async function fetchEvent() {
