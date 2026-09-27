@@ -323,7 +323,73 @@
 
 <div class="toast" id="toast">Saved</div>
 
+<!-- Auth Modal -->
+<div id="authModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:var(--card); padding:24px; border-radius:12px; width:100%; max-width:400px; box-shadow:0 12px 30px rgba(0,0,0,0.2);">
+    <h2 style="margin-top:0;">Welcome to Form Builder</h2>
+    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:16px;">Please log in or sign up to save your events to the database.</p>
+    
+    <div id="authError" style="color:red; font-size:0.85rem; margin-bottom:10px;"></div>
+
+    <div id="loginForm">
+      <input type="email" id="authEmail" placeholder="Email" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+      <input type="password" id="authPass" placeholder="Password" class="pf-input" style="margin-bottom:16px; width:100%; box-sizing:border-box;">
+      <button class="btn btn-emerald" style="width:100%; margin-bottom:10px;" onclick="doLogin()">Log In</button>
+      <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('loginForm').style.display='none'; document.getElementById('signupForm').style.display='block';">Need an account? Sign Up</button>
+    </div>
+
+    <div id="signupForm" style="display:none;">
+      <input type="text" id="suOrgName" placeholder="Organization Name" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+      <input type="text" id="suName" placeholder="Your Name" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+      <input type="email" id="suEmail" placeholder="Email" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+      <input type="password" id="suPass" placeholder="Password" class="pf-input" style="margin-bottom:16px; width:100%; box-sizing:border-box;">
+      <button class="btn btn-emerald" style="width:100%; margin-bottom:10px;" onclick="doSignup()">Sign Up</button>
+      <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('signupForm').style.display='none'; document.getElementById('loginForm').style.display='block';">Already have an account? Log In</button>
+    </div>
+  </div>
+</div>
+
 <script>
+let apiToken = localStorage.getItem('apiToken');
+function checkAuth() {
+  if (!apiToken) {
+    document.getElementById('authModal').style.display = 'flex';
+  } else {
+    document.getElementById('authModal').style.display = 'none';
+  }
+}
+async function doLogin() {
+  const email = document.getElementById('authEmail').value;
+  const password = document.getElementById('authPass').value;
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await res.json();
+    if(res.ok) {
+      apiToken = data.token; localStorage.setItem('apiToken', apiToken); checkAuth(); showToast('Logged in!');
+    } else { document.getElementById('authError').textContent = data.error || 'Login failed'; }
+  } catch(e) { document.getElementById('authError').textContent = 'Network error'; }
+}
+async function doSignup() {
+  const orgName = document.getElementById('suOrgName').value;
+  const name = document.getElementById('suName').value;
+  const email = document.getElementById('suEmail').value;
+  const password = document.getElementById('suPass').value;
+  try {
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({orgName, name, email, password})
+    });
+    const data = await res.json();
+    if(res.ok) {
+      apiToken = data.token; localStorage.setItem('apiToken', apiToken); checkAuth(); showToast('Signed up!');
+    } else { document.getElementById('authError').textContent = data.error || 'Signup failed'; }
+  } catch(e) { document.getElementById('authError').textContent = 'Network error'; }
+}
+checkAuth();
+</script>
 const STORE_KEY = 'eventFormBuilderStore';
 let store = { events:{}, order:[], activeId:null };
 let fields = [];
@@ -706,7 +772,7 @@ function escapeHtml(s){
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function generate(){
+async function generate(){
   buildPreview();
   const name = document.getElementById('evName').value.trim() || 'Untitled event';
   const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'event';
@@ -716,15 +782,32 @@ function generate(){
   ev.generated = true;
   ev.slug = slug;
   syncFormToActive();
-  saveStore();
-  renderEventList();
-
-  showQR(slug, name);
-  showToast('Form + QR generated');
+  
+  try {
+    const res = await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiToken },
+      body: JSON.stringify({
+        name: ev.name, slug: ev.slug, eventDate: ev.date, venue: ev.venue, whatsappGroupLink: ev.wa,
+        header: ev.header, fields: ev.fields
+      })
+    });
+    if (!res.ok) {
+      if (res.status === 401) { checkAuth(); throw new Error("Please log in again"); }
+      throw new Error(await res.text());
+    }
+    saveStore();
+    renderEventList();
+    showQR(slug, name);
+    showToast('Form + QR generated & saved to database!');
+  } catch(e) {
+    showToast('Failed to save: ' + e.message);
+  }
 }
 
 function showQR(slug, name){
-  const payload = `https://checkin.example.com/r/${slug}`;
+  // Generate the URL to point to our soon-to-be-created attendee.html
+  const payload = window.location.origin + `/attendee.html?slug=${slug}`;
   document.getElementById('qrCard').style.display = 'block';
   document.getElementById('qrSub').textContent = `Links to the ${name || 'event'} registration form`;
   const box = document.getElementById('qrbox');

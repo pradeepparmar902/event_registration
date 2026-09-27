@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Event Registration</title>
+    <style>
+        :root { --ink:#1B2320; --paper:#F7F4EC; --emerald:#1F6F5C; --emerald-d:#154F42; --line:#DCD5C4; --card:#FFFFFF; --muted:#6B6357; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--paper); color: var(--ink); margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: var(--card); padding: 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .pf-header { margin: 0 0 16px; line-height: 1.3; }
+        .pf-header.sm { font-size: 0.9rem; } .pf-header.md { font-size: 1.2rem; } .pf-header.lg { font-size: 1.5rem; font-weight: bold; }
+        .pf-header-img { width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 16px; display: block; }
+        .ev-name { font-size: 1.3rem; font-weight: bold; margin: 4px 0; }
+        .ev-meta { font-size: 0.9rem; color: var(--muted); margin-bottom: 24px; }
+        
+        .pf-field { margin-bottom: 16px; }
+        .pf-field label { display: block; font-size: 0.9rem; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
+        .pf-input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 1rem; color: var(--ink); box-sizing: border-box; }
+        .pf-input:focus { outline: 2px solid var(--emerald); outline-offset: 1px; }
+        
+        .pf-submit { width: 100%; margin-top: 10px; background: var(--emerald); color: #fff; border: none; padding: 14px; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer; }
+        .pf-submit:active { transform: scale(0.98); }
+        .pf-submit:disabled { opacity: 0.7; cursor: not-allowed; }
+        
+        #successMessage { display: none; text-align: center; padding: 40px 20px; }
+        #successMessage h2 { color: var(--emerald); margin-top: 0; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="loading">Loading event details...</div>
+
+<div class="container" id="formContainer" style="display:none;">
+    <div id="headerRender"></div>
+    <div class="ev-name" id="eventName"></div>
+    <div class="ev-meta" id="eventMeta"></div>
+    
+    <form id="registrationForm" onsubmit="submitForm(event)">
+        <div id="fieldsRender"></div>
+        <button type="submit" class="pf-submit" id="submitBtn">Submit &amp; check in</button>
+    </form>
+</div>
+
+<div class="container" id="successMessage">
+    <h2>✅ Checked In!</h2>
+    <p>Thank you for registering.</p>
+    <p id="waMessage" style="font-size:0.9rem; color:var(--muted);"></p>
+</div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const slug = urlParams.get('slug');
+    let eventData = null;
+
+    if (!slug) {
+        document.getElementById('loading').textContent = "Invalid QR code. No event specified.";
+    } else {
+        fetchEvent();
+    }
+
+    async function fetchEvent() {
+        try {
+            const res = await fetch(`/api/public/events/${slug}`);
+            if (!res.ok) throw new Error("Event not found or inactive.");
+            eventData = await res.json();
+            renderForm();
+        } catch (e) {
+            document.getElementById('loading').textContent = e.message;
+        }
+    }
+
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    function renderForm() {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('formContainer').style.display = 'block';
+        
+        // Header
+        const h = eventData.header;
+        if (h) {
+            let html = '';
+            if (h.type === 'text' && h.text) {
+                html = `<div class="pf-header ${h.size}" style="text-align:${h.align};font-weight:${h.bold ? 700 : 500};">${escapeHtml(h.text)}</div>`;
+            } else if (h.type === 'image' && h.imageData) {
+                html = `<img class="pf-header-img" src="${h.imageData}" alt="Event Header">`;
+            }
+            document.getElementById('headerRender').innerHTML = html;
+        }
+        
+        document.getElementById('eventName').textContent = eventData.name;
+        const meta = [eventData.event_date, eventData.venue].filter(Boolean).join(' · ');
+        document.getElementById('eventMeta').textContent = meta;
+
+        // Fields
+        let fieldsHtml = '';
+        const fields = eventData.fields || [];
+        fields.forEach(f => {
+            if (f.hidden) return;
+            fieldsHtml += `<div class="pf-field"><label>${escapeHtml(f.name)}</label>`;
+            const idAttr = `name="${escapeHtml(f.name)}" required`;
+            
+            if (f.type === 'select' || f.type === 'gender') {
+                let opts = f.type === 'gender' ? ['Male', 'Female', 'Other', 'Prefer not to say'] : (f.options || []);
+                const optsHtml = opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+                fieldsHtml += `<select class="pf-input" ${idAttr}><option value="">Choose…</option>${optsHtml}</select>`;
+            } else if (f.type === 'address') {
+                fieldsHtml += `<textarea class="pf-input" rows="3" ${idAttr}></textarea>`;
+            } else if (f.type === 'percentage') {
+                fieldsHtml += `<input class="pf-input" type="number" step="0.01" ${idAttr}>`;
+            } else if (f.type === 'file' || f.type === 'image') {
+                fieldsHtml += `<input class="pf-input" type="file" ${f.type === 'image' ? 'accept="image/*"' : ''} ${idAttr}>`;
+            } else if (f.type === 'fullname') {
+                fieldsHtml += `<input class="pf-input" type="text" ${idAttr}>`;
+            } else {
+                fieldsHtml += `<input class="pf-input" type="${f.type}" ${idAttr}>`;
+            }
+            fieldsHtml += `</div>`;
+        });
+        document.getElementById('fieldsRender').innerHTML = fieldsHtml;
+    }
+
+    async function submitForm(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.textContent = "Submitting...";
+        
+        const form = document.getElementById('registrationForm');
+        // We use FormData for file upload support
+        const formData = new FormData(form);
+        
+        try {
+            const res = await fetch(`/api/public/events/${slug}/register`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!res.ok) throw new Error("Failed to register.");
+            
+            document.getElementById('formContainer').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'block';
+            
+            if (eventData.whatsapp_group_link) {
+                document.getElementById('waMessage').innerHTML = `<br><a href="${eventData.whatsapp_group_link}" target="_blank" style="color:var(--emerald); font-weight:bold; text-decoration:none;">👉 Click here to join the WhatsApp Group</a>`;
+            } else {
+                document.getElementById('waMessage').textContent = "You will receive a WhatsApp confirmation shortly.";
+            }
+            
+        } catch (err) {
+            alert(err.message);
+            btn.disabled = false;
+            btn.textContent = "Submit & check in";
+        }
+    }
+</script>
+
+</body>
+</html>
