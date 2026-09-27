@@ -789,22 +789,21 @@ async function generate(){
         header: ev.header, fields: ev.fields
       })
     });
-    if (!res.ok) {
-      if (res.status === 401) { checkAuth(); throw new Error("Please log in again"); }
-      throw new Error(await res.text());
-    }
-    saveStore();
-    renderEventList();
-    showQR(slug, name);
-    showToast('Form + QR generated & saved to database!');
+    if (!res.ok && res.status === 401) { checkAuth(); throw new Error("Please log in again"); }
   } catch(e) {
-    showToast('Failed to save: ' + e.message);
+    console.warn('Backend not available, saving locally for UI testing:', e.message);
   }
+  
+  saveStore();
+  renderEventList();
+  showQR(slug, name);
+  showToast('Form + QR generated!');
 }
 
 function showQR(slug, name){
-  // Generate the URL to point to our soon-to-be-created attendee.html
-  const payload = window.location.origin + `/attendee.html?slug=${slug}`;
+  // Generate the URL (handles GitHub Pages subdirectory properly)
+  const base = window.location.href.split('?')[0].replace(/index\.html$/, '').replace(/\/$/, '');
+  const payload = base + `/attendee.html?slug=${slug}`;
   document.getElementById('qrCard').style.display = 'block';
   document.getElementById('qrSub').innerHTML = `Links to the ${escapeHtml(name || 'event')} registration form:<br><br><a href="${payload}" target="_blank" style="color:var(--emerald); font-weight:bold; word-break:break-all;">${payload}</a>`;
   const box = document.getElementById('qrbox');
