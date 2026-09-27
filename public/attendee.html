@@ -206,25 +206,35 @@
 
             let regNumber = null;
             if (eventData.regSettings) {
-                const format = eventData.regSettings.format || 'EVT {number} 2026';
+                const prefix = eventData.regSettings.prefix || 'EVT';
+                const startNumStr = eventData.regSettings.startNum || '0001';
+                const year = eventData.regSettings.year || new Date().getFullYear();
+                
+                // Determine starting number and padding length
+                let startNum = parseInt(startNumStr, 10);
+                if (isNaN(startNum)) startNum = 1;
+                const padLength = startNumStr.length;
                 
                 try {
                     regNumber = await window.runTransaction(window.db, async (transaction) => {
                         const counterRef = window.doc(window.db, "counters", slug);
                         const counterDoc = await transaction.get(counterRef);
-                        let nextNum = 1;
+                        
+                        let nextNum = startNum;
                         if (counterDoc.exists()) {
                             nextNum = (counterDoc.data().count || 0) + 1;
+                            if (nextNum < startNum) nextNum = startNum;
                         }
+                        
                         transaction.set(counterRef, { count: nextNum }, { merge: true });
                         
-                        const paddedNum = String(nextNum).padStart(4, '0');
-                        return format.replace('{number}', paddedNum);
+                        const paddedNum = String(nextNum).padStart(padLength, '0');
+                        return `${prefix} ${paddedNum} ${year}`;
                     });
                 } catch(e) {
                     console.error("Counter transaction failed:", e);
-                    const randomNum = String(Math.floor(Math.random()*10000)).padStart(4, '0');
-                    regNumber = format.replace('{number}', randomNum);
+                    const randomNum = String(Math.floor(Math.random()*10000)).padStart(padLength, '0');
+                    regNumber = `${prefix} ${randomNum} ${year}`;
                 }
                 dataObj['Registration Number'] = regNumber;
             }
