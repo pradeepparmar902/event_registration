@@ -52,28 +52,38 @@
     <p id="waMessage" style="font-size:0.9rem; color:var(--muted);"></p>
 </div>
 
+<script type="module">
+    import { firebaseConfig } from './firebase-config.js';
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, getDoc, doc, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    const app = initializeApp(firebaseConfig);
+    window.db = getFirestore(app);
+    window.getDoc = getDoc;
+    window.doc = doc;
+    window.addDoc = addDoc;
+    window.collection = collection;
+</script>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/intlTelInput.min.js"></script>
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     const slug = urlParams.get('slug');
     let eventData = null;
-    
-    // Set this to your Render URL (e.g., 'https://event-backend-1234.onrender.com') when deployed
-    const API_BASE_URL = '';
 
     if (!slug) {
         document.getElementById('loading').textContent = "Invalid QR code. No event specified.";
     } else {
-        fetchEvent();
+        // Wait a tiny bit for firebase module to load
+        setTimeout(fetchEvent, 200);
     }
 
     async function fetchEvent() {
         try {
-            const res = await fetch(`${API_BASE_URL}/api/public/events/${slug}`);
-            if (!res.ok) throw new Error("API failed");
-            eventData = await res.json();
+            const eventDoc = await window.getDoc(window.doc(window.db, "events", slug));
+            if (!eventDoc.exists()) throw new Error("Event not found");
+            eventData = eventDoc.data();
         } catch (e) {
-            console.warn('Backend not available, trying local storage for UI testing...');
+            console.warn('Firebase failed, trying local storage for UI testing...');
             const storeRaw = localStorage.getItem('eventFormBuilderStore');
             if (storeRaw) {
                 const store = JSON.parse(storeRaw);
@@ -183,13 +193,16 @@
         const formData = new FormData(form);
         
         try {
-            const res = await fetch(`${API_BASE_URL}/api/public/events/${slug}/register`, {
-                method: 'POST',
-                body: formData
+            const dataObj = {};
+            formData.forEach((value, key) => { dataObj[key] = value; });
+
+            await window.addDoc(window.collection(window.db, "registrations"), {
+                event_slug: slug,
+                data: dataObj,
+                createdAt: new Date().toISOString()
             });
-            if (!res.ok) throw new Error("API failed");
         } catch (err) {
-            console.warn('Backend not available. Simulating success for UI testing:', err.message);
+            console.warn('Firebase submission failed. Simulating success for UI testing:', err.message);
         }
             
         document.getElementById('formContainer').style.display = 'none';
