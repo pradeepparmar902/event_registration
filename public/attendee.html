@@ -26,6 +26,10 @@
         #successMessage { display: none; text-align: center; padding: 40px 20px; }
         #successMessage h2 { color: var(--emerald); margin-top: 0; }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/css/intlTelInput.css">
+    <style>
+        .iti { width: 100%; } /* ensure country code dropdown fills the input width */
+    </style>
 </head>
 <body>
 
@@ -48,6 +52,7 @@
     <p id="waMessage" style="font-size:0.9rem; color:var(--muted);"></p>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/intlTelInput.min.js"></script>
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     const slug = urlParams.get('slug');
@@ -135,12 +140,30 @@
                 fieldsHtml += `<input class="pf-input" type="file" ${f.type === 'image' ? 'accept="image/*"' : ''} ${idAttr}>`;
             } else if (f.type === 'fullname') {
                 fieldsHtml += `<input class="pf-input" type="text" ${idAttr}>`;
+            } else if (f.type === 'tel-country') {
+                // Render visible input. intlTelInput will convert it. 
+                fieldsHtml += `<input class="pf-input tel-country-input" type="tel" id="tel_${escapeHtml(f.name)}" data-name="${escapeHtml(f.name)}" required>`;
             } else {
                 fieldsHtml += `<input class="pf-input" type="${f.type}" ${idAttr}>`;
             }
             fieldsHtml += `</div>`;
         });
         document.getElementById('fieldsRender').innerHTML = fieldsHtml;
+
+        // Initialize intl-tel-input for any tel-country fields
+        setTimeout(() => {
+            document.querySelectorAll('.tel-country-input').forEach(input => {
+                const actualName = input.getAttribute('data-name');
+                window.intlTelInput(input, {
+                    utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/utils.js",
+                    hiddenInput: actualName, 
+                    separateDialCode: true,
+                    initialCountry: "in"
+                });
+                // rename the visible input so it doesn't clash with the hidden input in FormData
+                input.name = actualName + '_raw';
+            });
+        }, 10);
     }
 
     async function submitForm(e) {

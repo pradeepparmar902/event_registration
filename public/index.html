@@ -272,7 +272,8 @@
           <option value="text">Text</option>
           <option value="number">Number</option>
           <option value="email">Email</option>
-          <option value="tel">Phone</option>
+          <option value="tel">Phone (Basic)</option>
+          <option value="tel-country">Mobile Number (with Country Code)</option>
           <option value="date">Date</option>
           <option value="fullname">Full Name</option>
           <option value="address">Address</option>
@@ -543,7 +544,7 @@ function renderFields(){
       return;
     }
     const labels = {
-      'text': 'Text', 'number': 'Number', 'email': 'Email', 'tel': 'Phone',
+      'text': 'Text', 'number': 'Number', 'email': 'Email', 'tel': 'Phone (Basic)', 'tel-country': 'Mobile Number (with Country Code)',
       'date': 'Date', 'fullname': 'Full Name', 'address': 'Address', 'gender': 'Gender',
       'url': 'Link (URL)', 'image': 'Photo Upload (Image)', 'file': 'Document Upload (PDF/Word)',
       'select': `Dropdown Options · ${(f.options||[]).length} options`,
@@ -572,7 +573,8 @@ function renderFields(){
 
 function fieldEditHtml(f, i){
   const optsList = [
-    {v:'text', l:'Text'}, {v:'number', l:'Number'}, {v:'email', l:'Email'}, {v:'tel', l:'Phone'}, 
+    {v:'text', l:'Text'}, {v:'number', l:'Number'}, {v:'email', l:'Email'}, 
+    {v:'tel', l:'Phone (Basic)'}, {v:'tel-country', l:'Mobile Number (with Country Code)'},
     {v:'date', l:'Date'}, {v:'fullname', l:'Full Name'}, {v:'address', l:'Address'}, {v:'gender', l:'Gender'}, 
     {v:'url', l:'Link (URL)'}, {v:'image', l:'Photo Upload (Image)'}, {v:'file', l:'Document Upload (PDF/Word)'}, 
     {v:'select', l:'Dropdown Options'}, {v:'percentage', l:'Percentage (%) with Decimal'}
@@ -760,6 +762,8 @@ function buildPreview(){
       html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><select class="pf-input"><option>Choose…</option><option>Male</option><option>Female</option><option>Other</option><option>Prefer not to say</option></select></div>`;
     } else if(f.type === 'fullname'){
       html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><input class="pf-input" type="text"></div>`;
+    } else if(f.type === 'tel-country'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><div style="display:flex; gap:5px;"><select class="pf-input" style="width:70px; padding:7px;"><option>🌐</option></select><input class="pf-input" type="tel" style="flex:1;"></div></div>`;
     } else {
       html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><input class="pf-input" type="${f.type}" placeholder=""></div>`;
     }
