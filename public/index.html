@@ -71,7 +71,9 @@
   .field-card{
     background:var(--card); border:1px solid var(--line-soft); border-radius:8px;
     padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;
+    cursor: grab;
   }
+  .field-card:active { cursor: grabbing; }
   .field-card .fname{ flex:1; font-size:0.9rem; }
   .field-card .ftype{ font-size:0.75rem; color:var(--muted); }
   .field-card button.rm{
@@ -413,7 +415,13 @@ function makeEvent(name){
 function loadStore(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
-    if(raw){ store = JSON.parse(raw); }
+    if(raw){ 
+      store = JSON.parse(raw); 
+      // Force unlock all fields from previous saves
+      Object.values(store.events || {}).forEach(ev => {
+        if(ev.fields) ev.fields.forEach(f => f.locked = false);
+      });
+    }
   }catch(e){}
   if(!store.order || store.order.length === 0){
     const ev = makeEvent('Untitled event');
@@ -538,6 +546,26 @@ function renderFields(){
   fields.forEach((f, i) => {
     const el = document.createElement('div');
     el.className = 'field-card' + (f.locked ? ' locked' : '') + (f.hidden ? ' hidden-field' : '');
+    
+    // Drag & Drop
+    el.draggable = true;
+    el.ondragstart = (e) => { e.dataTransfer.setData('text/plain', i); el.style.opacity = '0.4'; };
+    el.ondragend = (e) => { el.style.opacity = '1'; };
+    el.ondragover = (e) => { e.preventDefault(); el.style.boxShadow = '0 -3px 0 0 var(--emerald)'; };
+    el.ondragleave = (e) => { el.style.boxShadow = 'none'; };
+    el.ondrop = (e) => {
+      e.preventDefault();
+      el.style.boxShadow = 'none';
+      const fromI = Number(e.dataTransfer.getData('text/plain'));
+      if(fromI === i || isNaN(fromI)) return;
+      const moved = fields.splice(fromI, 1)[0];
+      fields.splice(i, 0, moved);
+      renderFields();
+      buildPreview();
+      syncFormToActive();
+      saveStore();
+    };
+
     if(editingIndex === i){
       el.innerHTML = fieldEditHtml(f, i);
       list.appendChild(el);
