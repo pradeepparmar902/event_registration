@@ -53,16 +53,21 @@
 </div>
 
 <script type="module">
-    import { firebaseConfig } from './firebase-config.js?v=2';
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, getDoc, doc, addDoc, collection, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-    const app = initializeApp(firebaseConfig);
-    window.db = getFirestore(app);
-    window.getDoc = getDoc;
-    window.doc = doc;
-    window.addDoc = addDoc;
-    window.collection = collection;
-    window.runTransaction = runTransaction;
+    try {
+        const { firebaseConfig } = await import('./firebase-config.js?v=3');
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js");
+        const { getFirestore, getDoc, doc, addDoc, collection, runTransaction } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        const app = initializeApp(firebaseConfig);
+        window.db = getFirestore(app);
+        window.getDoc = getDoc;
+        window.doc = doc;
+        window.addDoc = addDoc;
+        window.collection = collection;
+        window.runTransaction = runTransaction;
+    } catch(err) {
+        document.getElementById('loading').innerHTML = `<span style="color:red">Fatal Error loading Firebase: ${err.message}</span>`;
+        console.error("Firebase module error:", err);
+    }
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/intlTelInput.min.js"></script>
@@ -77,10 +82,16 @@
         waitForFirebase();
     }
 
+    let waitAttempts = 0;
     function waitForFirebase() {
         if (window.db && window.getDoc) {
             fetchEvent();
         } else {
+            waitAttempts++;
+            if (waitAttempts > 50) { // 5 seconds
+                document.getElementById('loading').innerHTML = `<span style="color:red">Failed to connect to Firebase database after 5 seconds. Please check your internet connection or disable tracking blockers.</span>`;
+                return;
+            }
             setTimeout(waitForFirebase, 100);
         }
     }
