@@ -105,6 +105,14 @@ class DBWrapper {
       CREATE INDEX IF NOT EXISTS idx_events_org ON events(org_id);
       CREATE INDEX IF NOT EXISTS idx_registrations_event ON registrations(event_id);
     `);
+    
+    // --- TEMPORARY TEST DATA FOR AUTH BYPASS ---
+    try {
+      this.db.run(`INSERT OR IGNORE INTO organizations (id, name) VALUES ('test-org-id', 'Test Organization')`);
+      this.db.run(`INSERT OR IGNORE INTO users (id, org_id, email, password_hash, name, role) VALUES ('test-user-id', 'test-org-id', 'test@example.com', 'none', 'Test User', 'admin')`);
+    } catch(e) {}
+    // -------------------------------------------
+
     this._save();
   }
 
