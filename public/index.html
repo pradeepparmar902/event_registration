@@ -275,7 +275,8 @@
           <option value="tel">Phone (Basic)</option>
           <option value="tel-country">Mobile Number (with Country Code)</option>
           <option value="date">Date</option>
-          <option value="fullname">Full Name</option>
+          <option value="fullname">Full Name (Single Field)</option>
+          <option value="fullname-split">Name, Middle Name, Surname (3 Fields)</option>
           <option value="address">Address</option>
           <option value="gender">Gender</option>
           <option value="url">Link (URL)</option>
@@ -545,7 +546,8 @@ function renderFields(){
     }
     const labels = {
       'text': 'Text', 'number': 'Number', 'email': 'Email', 'tel': 'Phone (Basic)', 'tel-country': 'Mobile Number (with Country Code)',
-      'date': 'Date', 'fullname': 'Full Name', 'address': 'Address', 'gender': 'Gender',
+      'date': 'Date', 'fullname': 'Full Name (Single Field)', 'fullname-split': 'Name, Middle Name, Surname', 
+      'address': 'Address', 'gender': 'Gender',
       'url': 'Link (URL)', 'image': 'Photo Upload (Image)', 'file': 'Document Upload (PDF/Word)',
       'select': `Dropdown Options · ${(f.options||[]).length} options`,
       'percentage': 'Percentage (%) with Decimal'
@@ -575,7 +577,9 @@ function fieldEditHtml(f, i){
   const optsList = [
     {v:'text', l:'Text'}, {v:'number', l:'Number'}, {v:'email', l:'Email'}, 
     {v:'tel', l:'Phone (Basic)'}, {v:'tel-country', l:'Mobile Number (with Country Code)'},
-    {v:'date', l:'Date'}, {v:'fullname', l:'Full Name'}, {v:'address', l:'Address'}, {v:'gender', l:'Gender'}, 
+    {v:'date', l:'Date'}, {v:'fullname', l:'Full Name (Single Field)'}, 
+    {v:'fullname-split', l:'Name, Middle Name, Surname (3 Fields)'}, 
+    {v:'address', l:'Address'}, {v:'gender', l:'Gender'}, 
     {v:'url', l:'Link (URL)'}, {v:'image', l:'Photo Upload (Image)'}, {v:'file', l:'Document Upload (PDF/Word)'}, 
     {v:'select', l:'Dropdown Options'}, {v:'percentage', l:'Percentage (%) with Decimal'}
   ];
@@ -762,6 +766,8 @@ function buildPreview(){
       html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><select class="pf-input"><option>Choose…</option><option>Male</option><option>Female</option><option>Other</option><option>Prefer not to say</option></select></div>`;
     } else if(f.type === 'fullname'){
       html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><input class="pf-input" type="text"></div>`;
+    } else if(f.type === 'fullname-split'){
+      html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><div style="display:flex;gap:8px;"><input class="pf-input" type="text" placeholder="Name" style="flex:1;"><input class="pf-input" type="text" placeholder="Middle" style="flex:1;"><input class="pf-input" type="text" placeholder="Surname" style="flex:1;"></div></div>`;
     } else if(f.type === 'tel-country'){
       html += `<div class="pf-field"><label>${escapeHtml(f.name)}</label><div style="display:flex; gap:5px;"><select class="pf-input" style="width:70px; padding:7px;"><option>🌐</option></select><input class="pf-input" type="tel" style="flex:1;"></div></div>`;
     } else {

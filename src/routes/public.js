@@ -42,7 +42,15 @@ router.post('/events/:slug/register', upload.any(), async (req, res) => {
   // attach uploaded file paths under their field name
   (req.files || []).forEach(f => { formData[f.fieldname] = `/uploads/${f.filename}`; });
 
-  const fullName = formData['Full name'] || formData.name || null;
+  let fullName = formData['Full name'] || formData.name || null;
+  if (!fullName) {
+    const splitNameKey = Object.keys(formData).find(k => k.endsWith(' - Name'));
+    if (splitNameKey) {
+      const base = splitNameKey.replace(' - Name', '');
+      fullName = [formData[`${base} - Name`], formData[`${base} - Middle`], formData[`${base} - Surname`]].filter(Boolean).join(' ');
+    }
+  }
+
   const phone = formData['Phone number'] || formData.phone || null;
   if (!phone) return res.status(400).json({ error: 'Phone number is required to send a WhatsApp confirmation' });
 
