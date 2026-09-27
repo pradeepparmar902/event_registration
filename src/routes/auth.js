@@ -6,43 +6,33 @@ const db = require('../db');
 
 const router = express.Router();
 
-// POST /api/auth/signup
-// Creates a brand-new organization (tenant) plus its first admin user.
-router.post('/signup', (req, res) => {
+router.post('/signup', async (req, res) => {
   const { orgName, name, email, password } = req.body;
   if (!orgName || !email || !password) {
     return res.status(400).json({ error: 'orgName, email and password are required' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existing = await db.get('SELECT id FROM users WHERE email = $1', [email]);
   if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
 
   const orgId = uuid();
   const userId = uuid();
   const passwordHash = bcrypt.hashSync(password, 10);
 
-  const insertOrg = db.prepare('INSERT INTO organizations (id, name) VALUES (?, ?)');
-  const insertUser = db.prepare(`
-    INSERT INTO users (id, org_id, email, password_hash, name, role)
-    VALUES (?, ?, ?, ?, ?, 'admin')
-  `);
-
-  const tx = db.transaction(() => {
-    insertOrg.run(orgId, orgName);
-    insertUser.run(userId, orgId, email, passwordHash, name || null);
-  });
-  tx();
+  await db.transaction([
+    { text: 'INSERT INTO organizations (id, name) VALUES ($1, $2)', params: [orgId, orgName] },
+    { text: 'INSERT INTO users (id, org_id, email, password_hash, name, role) VALUES ($1, $2, $3, $4, $5, $6)', params: [userId, orgId, email, passwordHash, name || null, 'admin'] }
+  ]);
 
   const token = signToken({ userId, orgId, email, role: 'admin' });
   res.status(201).json({ token, org: { id: orgId, name: orgName }, user: { id: userId, email, name, role: 'admin' } });
 });
 
-// POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const user = await db.get('SELECT * FROM users WHERE email = $1', [email]);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
@@ -52,7 +42,7 @@ router.post('/login', (req, res) => {
 });
 
 function signToken(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+  return jwt.sign(payload, process.env.JWT_SECRET || 'dev-secret', { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 }
 
 module.exports = router;
