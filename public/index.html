@@ -830,9 +830,18 @@ async function generate(){
         header: ev.header, fields: ev.fields
       })
     });
-    if (!res.ok && res.status === 401) { checkAuth(); throw new Error("Please log in again"); }
+    if (!res.ok) {
+      const errText = await res.text();
+      alert(`Could not save event to server (Error ${res.status}): ${errText}`);
+      if (res.status === 401) checkAuth();
+      return;
+    }
+    const data = await res.json();
+    ev.slug = data.slug; // use the slug the backend actually saved
+    slug = data.slug;
   } catch(e) {
-    console.warn('Backend not available, saving locally for UI testing:', e.message);
+    alert('Network error when connecting to server: ' + e.message);
+    return;
   }
   
   saveStore();
