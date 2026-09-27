@@ -19,7 +19,7 @@ router.post('/', (req, res) => {
   }
 
   const id = uuid();
-  let slug = slugify(name);
+  let slug = req.body.slug || slugify(name);
   // ensure slug uniqueness by suffixing with part of the id if needed
   const clash = db.prepare('SELECT id FROM events WHERE slug = ?').get(slug);
   if (clash) slug = `${slug}-${id.slice(0, 6)}`;
