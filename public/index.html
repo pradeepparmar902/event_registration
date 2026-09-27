@@ -399,9 +399,9 @@ let qrObj = null;
 
 function defaultFields(){
   return [
-    {name:"Full name", type:"text", locked:true},
-    {name:"Phone number", type:"tel", locked:true},
-    {name:"Email", type:"email", locked:true},
+    {name:"Full name", type:"fullname-split", locked:false},
+    {name:"Mobile Number", type:"tel-country", locked:false},
+    {name:"Email", type:"email", locked:false},
   ];
 }
 function uid(){ return Math.random().toString(36).slice(2,9); }

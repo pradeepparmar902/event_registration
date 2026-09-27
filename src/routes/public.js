@@ -48,11 +48,18 @@ router.post('/events/:slug/register', upload.any(), async (req, res) => {
     if (splitNameKey) {
       const base = splitNameKey.replace(' - Name', '');
       fullName = [formData[`${base} - Name`], formData[`${base} - Middle`], formData[`${base} - Surname`]].filter(Boolean).join(' ');
+    } else {
+      const nameKey = Object.keys(formData).find(k => k.toLowerCase().includes('name'));
+      if (nameKey) fullName = formData[nameKey];
     }
   }
 
-  const phone = formData['Phone number'] || formData.phone || null;
-  if (!phone) return res.status(400).json({ error: 'Phone number is required to send a WhatsApp confirmation' });
+  let phone = formData['Phone number'] || formData.phone || formData['Mobile Number'] || null;
+  if (!phone) {
+    const phoneKey = Object.keys(formData).find(k => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile') || k.toLowerCase().includes('whatsapp'));
+    if (phoneKey) phone = formData[phoneKey];
+  }
+  if (!phone) return res.status(400).json({ error: 'A phone or mobile number field is required to send a WhatsApp confirmation' });
 
   const regId = uuid();
   db.prepare(`
