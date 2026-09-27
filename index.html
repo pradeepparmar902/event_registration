@@ -351,6 +351,9 @@
 
 <script>
 let apiToken = localStorage.getItem('apiToken') || 'dummy-token-for-testing';
+// Set this to your Render URL (e.g., 'https://event-backend-1234.onrender.com') when deployed
+const API_BASE_URL = ''; 
+
 function checkAuth() {
   // --- TEMPORARY BYPASS FOR TESTING ---
   document.getElementById('authModal').style.display = 'none';
@@ -360,7 +363,7 @@ async function doLogin() {
   const email = document.getElementById('authEmail').value;
   const password = document.getElementById('authPass').value;
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({email, password})
     });
@@ -376,7 +379,7 @@ async function doSignup() {
   const email = document.getElementById('suEmail').value;
   const password = document.getElementById('suPass').value;
   try {
-    const res = await fetch('/api/auth/signup', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({orgName, name, email, password})
     });
@@ -781,7 +784,7 @@ async function generate(){
   syncFormToActive();
   
   try {
-    const res = await fetch('/api/events', {
+    const res = await fetch(`${API_BASE_URL}/api/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiToken },
       body: JSON.stringify({
