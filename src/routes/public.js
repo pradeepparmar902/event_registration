@@ -17,8 +17,10 @@ const upload = multer({
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB per file — tune for real usage
 });
 
-router.get('/events/:slug', async (req, res) => {
-  const ev = await db.get('SELECT * FROM events WHERE slug = $1 AND is_active = 1', [req.params.slug]);
+// GET /api/public/events/:slug — form schema for the attendee-facing page
+// This is what your QR code links to.
+router.get('/events/:slug', (req, res) => {
+  const ev = db.prepare('SELECT * FROM events WHERE slug = ? AND is_active = 1').get(req.params.slug);
   if (!ev) return res.status(404).json({ error: 'Event not found or no longer active' });
   res.json({
     id: ev.id,
@@ -30,11 +32,14 @@ router.get('/events/:slug', async (req, res) => {
   });
 });
 
+// POST /api/public/events/:slug/register — attendee submits the form
+// Accepts multipart/form-data so profile-image / document fields can attach files.
 router.post('/events/:slug/register', upload.any(), async (req, res) => {
-  const ev = await db.get('SELECT * FROM events WHERE slug = $1 AND is_active = 1', [req.params.slug]);
+  const ev = db.prepare('SELECT * FROM events WHERE slug = ? AND is_active = 1').get(req.params.slug);
   if (!ev) return res.status(404).json({ error: 'Event not found or no longer active' });
 
   const formData = { ...req.body };
+  // attach uploaded file paths under their field name
   (req.files || []).forEach(f => { formData[f.fieldname] = `/uploads/${f.filename}`; });
 
   const fullName = formData['Full name'] || formData.name || null;
@@ -42,28 +47,30 @@ router.post('/events/:slug/register', upload.any(), async (req, res) => {
   if (!phone) return res.status(400).json({ error: 'Phone number is required to send a WhatsApp confirmation' });
 
   const regId = uuid();
-  await db.run(`
+  db.prepare(`
     INSERT INTO registrations (id, event_id, data_json, phone, full_name, source)
-    VALUES ($1, $2, $3, $4, $5, 'walkin')
-  `, [regId, ev.id, JSON.stringify(formData), phone, fullName]);
+    VALUES (?, ?, ?, ?, ?, 'walkin')
+  `).run(regId, ev.id, JSON.stringify(formData), phone, fullName);
 
+  // Respond immediately — WhatsApp sends happen async so the attendee
+  // isn't stuck waiting at the door during a check-in rush.
   res.status(201).json({ ok: true, registrationId: regId });
 
   enqueue(async () => {
     try {
       await whatsappCloud.sendConfirmation({ toPhone: phone, name: fullName || 'there', eventName: ev.name });
-      await db.run('UPDATE registrations SET whatsapp_status = $1 WHERE id = $2', ['sent', regId]);
+      db.prepare('UPDATE registrations SET whatsapp_status = ? WHERE id = ?').run('sent', regId);
     } catch (err) {
       console.error('[whatsapp confirm] failed:', err.message);
-      await db.run('UPDATE registrations SET whatsapp_status = $1 WHERE id = $2', ['failed', regId]);
+      db.prepare('UPDATE registrations SET whatsapp_status = ? WHERE id = ?').run('failed', regId);
     }
 
     try {
       const result = await whatsappGroup.addToGroup({ phone, groupInviteLink: ev.whatsapp_group_link });
-      await db.run('UPDATE registrations SET whatsapp_group_status = $1 WHERE id = $2', [result.status, regId]);
+      db.prepare('UPDATE registrations SET whatsapp_group_status = ? WHERE id = ?').run(result.status, regId);
     } catch (err) {
       console.error('[whatsapp group] failed:', err.message);
-      await db.run('UPDATE registrations SET whatsapp_group_status = $1 WHERE id = $2', ['failed', regId]);
+      db.prepare('UPDATE registrations SET whatsapp_group_status = ? WHERE id = ?').run('failed', regId);
     }
   });
 });
