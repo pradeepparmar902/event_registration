@@ -52,6 +52,9 @@
     const urlParams = new URLSearchParams(window.location.search);
     const slug = urlParams.get('slug');
     let eventData = null;
+    
+    // Set this to your Render URL (e.g., 'https://event-backend-1234.onrender.com') when deployed
+    const API_BASE_URL = '';
 
     if (!slug) {
         document.getElementById('loading').textContent = "Invalid QR code. No event specified.";
@@ -61,7 +64,7 @@
 
     async function fetchEvent() {
         try {
-            const res = await fetch(`/api/public/events/${slug}`);
+            const res = await fetch(`${API_BASE_URL}/api/public/events/${slug}`);
             if (!res.ok) throw new Error("API failed");
             eventData = await res.json();
         } catch (e) {
@@ -151,7 +154,7 @@
         const formData = new FormData(form);
         
         try {
-            const res = await fetch(`/api/public/events/${slug}/register`, {
+            const res = await fetch(`${API_BASE_URL}/api/public/events/${slug}/register`, {
                 method: 'POST',
                 body: formData
             });
