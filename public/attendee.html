@@ -55,13 +55,14 @@
 <script type="module">
     import { firebaseConfig } from './firebase-config.js';
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, getDoc, doc, addDoc, collection } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { getFirestore, getDoc, doc, addDoc, collection, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
     const app = initializeApp(firebaseConfig);
     window.db = getFirestore(app);
     window.getDoc = getDoc;
     window.doc = doc;
     window.addDoc = addDoc;
     window.collection = collection;
+    window.runTransaction = runTransaction;
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/intlTelInput.min.js"></script>
@@ -203,24 +204,55 @@
             const dataObj = {};
             formData.forEach((value, key) => { dataObj[key] = value; });
 
+            let regNumber = null;
+            if (eventData.regSettings) {
+                const prefix = eventData.regSettings.prefix || 'EVT';
+                const year = eventData.regSettings.year || new Date().getFullYear();
+                
+                try {
+                    regNumber = await window.runTransaction(window.db, async (transaction) => {
+                        const counterRef = window.doc(window.db, "counters", slug);
+                        const counterDoc = await transaction.get(counterRef);
+                        let nextNum = 1;
+                        if (counterDoc.exists()) {
+                            nextNum = (counterDoc.data().count || 0) + 1;
+                        }
+                        transaction.set(counterRef, { count: nextNum }, { merge: true });
+                        // Format: PREFIX-YEAR-0001
+                        return `${prefix}-${year}-${String(nextNum).padStart(4, '0')}`;
+                    });
+                } catch(e) {
+                    console.error("Counter transaction failed:", e);
+                    regNumber = `${prefix}-${year}-${Math.floor(Math.random()*10000)}`; // fallback
+                }
+                dataObj['Registration Number'] = regNumber;
+            }
+
             await window.addDoc(window.collection(window.db, "registrations"), {
                 event_slug: slug,
                 data: dataObj,
+                reg_number: regNumber,
                 createdAt: new Date().toISOString()
             });
+
+            document.getElementById('formContainer').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'block';
+
+            let msgHtml = '';
+            if (regNumber) {
+                msgHtml += `<div style="margin:20px 0; padding:15px; background:var(--paper); border:1px dashed var(--emerald); border-radius:8px;">
+                    <span style="display:block; font-size:0.85rem; color:var(--muted); margin-bottom:5px;">Registration Number</span>
+                    <strong style="font-size:1.3rem; color:var(--ink);">${escapeHtml(regNumber)}</strong>
+                </div>`;
+            }
+            if (eventData.whatsapp_group_link) {
+                msgHtml += `<a href="${escapeHtml(eventData.whatsapp_group_link)}" target="_blank" style="color:var(--emerald); font-weight:bold; text-decoration:none;">👉 Click here to join the WhatsApp Group</a>`;
+            } else {
+                msgHtml += "You will receive a WhatsApp confirmation shortly.";
+            }
+            document.getElementById('waMessage').innerHTML = msgHtml;
+
         } catch (err) {
-            console.warn('Firebase submission failed. Simulating success for UI testing:', err.message);
-        }
-            
-        document.getElementById('formContainer').style.display = 'none';
-        document.getElementById('successMessage').style.display = 'block';
-        
-        if (eventData.whatsapp_group_link) {
-            document.getElementById('waMessage').innerHTML = `<br><a href="${eventData.whatsapp_group_link}" target="_blank" style="color:var(--emerald); font-weight:bold; text-decoration:none;">👉 Click here to join the WhatsApp Group</a>`;
-        } else {
-            document.getElementById('waMessage').textContent = "You will receive a WhatsApp confirmation shortly.";
-        }
-    }
 </script>
 
 </body>
