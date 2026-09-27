@@ -809,7 +809,7 @@ function showQR(slug, name){
   // Generate the URL to point to our soon-to-be-created attendee.html
   const payload = window.location.origin + `/attendee.html?slug=${slug}`;
   document.getElementById('qrCard').style.display = 'block';
-  document.getElementById('qrSub').textContent = `Links to the ${name || 'event'} registration form`;
+  document.getElementById('qrSub').innerHTML = `Links to the ${escapeHtml(name || 'event')} registration form:<br><br><a href="${payload}" target="_blank" style="color:var(--emerald); font-weight:bold; word-break:break-all;">${payload}</a>`;
   const box = document.getElementById('qrbox');
   box.innerHTML = '';
   qrObj = new QRCode(box, { text: payload, width:160, height:160, colorDark:"#1B2320", colorLight:"#ffffff" });
