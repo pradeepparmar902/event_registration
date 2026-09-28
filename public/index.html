@@ -211,7 +211,7 @@
     <section>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h2 class="section-title" style="margin:0;">Workspace</h2>
-          <input type="text" id="workspaceName" value="My Workspace" onchange="saveWorkspaceName()" style="border:none; border-bottom:1px dashed var(--muted); background:transparent; font-weight:600; font-size:0.9rem; width:150px; text-align:right; color:var(--ink); padding-bottom:2px;" title="Rename your workspace">
+          <select id="workspaceSelect" onchange="switchWorkspace()" style="border:none; border-bottom:1px dashed var(--muted); background:transparent; font-weight:600; font-size:0.9rem; text-align:right; color:var(--ink); padding-bottom:2px; cursor:pointer; max-width:180px;"></select>
       </div>
       <div class="event-strip" id="eventStrip"></div>
     </section>
@@ -465,10 +465,81 @@ async function doSignup() {
   } catch(e) { document.getElementById('authError').textContent = 'Network error'; }
 }
 checkAuth();
-const STORE_KEY = 'eventFormBuilderStore';
+let workspaces = JSON.parse(localStorage.getItem('form_workspaces')) || [{id: 'default', name: 'My Workspace'}];
+let activeWsId = localStorage.getItem('active_workspace_id') || 'default';
+let STORE_KEY = activeWsId === 'default' ? 'eventFormBuilderStore' : ('eventFormBuilderStore_' + activeWsId);
+
 let store = { events:{}, order:[], activeId:null };
 let fields = [];
 let qrObj = null;
+
+function renderWorkspaceSelect() {
+  const sel = document.getElementById('workspaceSelect');
+  if(!sel) return;
+  sel.innerHTML = '';
+  workspaces.forEach(ws => {
+      const opt = document.createElement('option');
+      opt.value = ws.id;
+      opt.textContent = ws.name;
+      if (ws.id === activeWsId) opt.selected = true;
+      sel.appendChild(opt);
+  });
+  
+  const renOpt = document.createElement('option');
+  renOpt.value = '__rename__';
+  renOpt.textContent = '✎ Rename Workspace';
+  sel.appendChild(renOpt);
+  
+  const newOpt = document.createElement('option');
+  newOpt.value = '__new__';
+  newOpt.textContent = '+ Create New Workspace';
+  sel.appendChild(newOpt);
+}
+
+function switchWorkspace() {
+  const sel = document.getElementById('workspaceSelect');
+  const val = sel.value;
+  
+  if (val === '__new__') {
+      const name = prompt("Enter new workspace name:");
+      if (name && name.trim()) {
+          const newId = 'ws_' + Date.now();
+          workspaces.push({id: newId, name: name.trim()});
+          localStorage.setItem('form_workspaces', JSON.stringify(workspaces));
+          activeWsId = newId;
+          localStorage.setItem('active_workspace_id', activeWsId);
+          STORE_KEY = 'eventFormBuilderStore_' + activeWsId;
+          store = { events:{}, order:[], activeId:null };
+          loadStore();
+          renderWorkspaceSelect();
+          renderEventList();
+          populateFormFromEvent(store.events[store.activeId]);
+          buildPreview();
+      } else {
+          sel.value = activeWsId;
+      }
+  } else if (val === '__rename__') {
+      const currentWs = workspaces.find(w => w.id === activeWsId);
+      const name = prompt("Rename workspace:", currentWs.name);
+      if (name && name.trim()) {
+          currentWs.name = name.trim();
+          localStorage.setItem('form_workspaces', JSON.stringify(workspaces));
+          renderWorkspaceSelect();
+          sel.value = activeWsId;
+      } else {
+          sel.value = activeWsId;
+      }
+  } else {
+      activeWsId = val;
+      localStorage.setItem('active_workspace_id', activeWsId);
+      STORE_KEY = activeWsId === 'default' ? 'eventFormBuilderStore' : ('eventFormBuilderStore_' + activeWsId);
+      store = { events:{}, order:[], activeId:null };
+      loadStore();
+      renderEventList();
+      populateFormFromEvent(store.events[store.activeId]);
+      buildPreview();
+  }
+}
 
 function defaultFields(){
   return [
@@ -484,17 +555,11 @@ function makeEvent(name){
     regSettings: { prefix: 'EVT', startNum: '0001', year: '2026' } };
 }
 
-function saveWorkspaceName() {
-  store.workspaceName = document.getElementById('workspaceName').value.trim() || 'My Workspace';
-  saveStore();
-}
-
 function loadStore(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
     if(raw){ 
       store = JSON.parse(raw); 
-      if (store.workspaceName) document.getElementById('workspaceName').value = store.workspaceName;
       Object.values(store.events || {}).forEach(ev => {
         if(ev.fields) ev.fields.forEach(f => f.locked = false);
         if(!ev.regSettings || ev.regSettings.format) ev.regSettings = { prefix: 'EVT', startNum: '0001', year: '2026' };
@@ -1072,6 +1137,7 @@ function wireLiveSync(){
   });
 }
 
+renderWorkspaceSelect();
 loadStore();
 renderEventList();
 populateFormFromEvent(store.events[store.activeId]);
