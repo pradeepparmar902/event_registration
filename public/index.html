@@ -227,8 +227,16 @@
         </div>
       </div>
       <div style="margin-top: 15px;">
-        <label class="field-label">WhatsApp Share Message Template</label>
-        <textarea id="waMessageTemplate" class="pf-input" rows="3" style="width:100%; border:1px solid var(--line); border-radius:6px; padding:10px;" placeholder="I just registered for {name}! My Registration Number is {reg}."></textarea>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <label class="field-label" style="margin:0;">WhatsApp Share Message Template</label>
+          <div style="font-size:0.75rem; display:flex; gap:6px; align-items:center;">
+            <span style="color:var(--muted);">WhatsApp Formatting:</span>
+            <button type="button" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; font-weight:bold;" onclick="insertWAFormat('*', '*')">B</button>
+            <button type="button" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; font-style:italic;" onclick="insertWAFormat('_', '_')">I</button>
+            <button type="button" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; text-decoration:line-through;" onclick="insertWAFormat('~', '~')">S</button>
+          </div>
+        </div>
+        <textarea id="waMessageTemplate" class="pf-input" rows="8" style="width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; font-family:monospace; resize:vertical;" placeholder="I just registered for {name}! My Registration Number is {reg}."></textarea>
         <p style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Available variables: <strong>{name}</strong>, <strong>{reg}</strong>, <strong>{date}</strong>, <strong>{venue}</strong>. Leave blank for the default message.</p>
       </div>
     </section>
@@ -469,6 +477,26 @@ function loadStore(){
   if(!store.activeId || !store.events[store.activeId]) store.activeId = store.order[0];
 }
 function saveStore(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }catch(e){} }
+
+function insertWAFormat(startTag, endTag) {
+  const textarea = document.getElementById('waMessageTemplate');
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  
+  if (start === end) {
+      textarea.value = text.substring(0, start) + startTag + "text" + endTag + text.substring(end);
+      textarea.selectionStart = start + startTag.length;
+      textarea.selectionEnd = start + startTag.length + 4;
+  } else {
+      const selectedText = text.substring(start, end);
+      textarea.value = text.substring(0, start) + startTag + selectedText + endTag + text.substring(end);
+      textarea.selectionStart = start + startTag.length;
+      textarea.selectionEnd = end + startTag.length;
+  }
+  textarea.focus();
+  syncFormToActive();
+}
 
 function syncFormToActive(){
   const ev = store.events[store.activeId];
