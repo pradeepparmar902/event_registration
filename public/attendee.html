@@ -281,11 +281,24 @@
                     <strong style="font-size:1.3rem; color:var(--ink);">${escapeHtml(regNumber)}</strong>
                 </div>`;
             }
+            
+            let shareText = `I just registered for *${eventData.name || 'the event'}*!\n`;
+            if (regNumber) shareText += `\n*Registration Number:* ${regNumber}`;
+            if (eventData.event_date) shareText += `\n*Date:* ${eventData.event_date}`;
+            if (eventData.venue) shareText += `\n*Venue:* ${eventData.venue}`;
+            
+            const waShareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+            
+            msgHtml += `<div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">`;
+            msgHtml += `<a href="${waShareUrl}" target="_blank" style="display:inline-block; padding:12px; background:#25D366; color:white; border-radius:8px; text-decoration:none; font-weight:bold;">📲 Share Confirmation on WhatsApp</a>`;
+            
             if (eventData.whatsapp_group_link) {
-                msgHtml += `<a href="${escapeHtml(eventData.whatsapp_group_link)}" target="_blank" style="color:var(--emerald); font-weight:bold; text-decoration:none;">👉 Click here to join the WhatsApp Group</a>`;
+                msgHtml += `<a href="${escapeHtml(eventData.whatsapp_group_link)}" target="_blank" style="display:inline-block; padding:12px; background:var(--emerald); color:white; border-radius:8px; text-decoration:none; font-weight:bold;">💬 Join Event WhatsApp Group</a>`;
             } else {
-                msgHtml += "You will receive a WhatsApp confirmation shortly.";
+                msgHtml += `<p style="font-size:0.9rem; color:var(--muted); margin:0;">You will receive a WhatsApp confirmation shortly.</p>`;
             }
+            msgHtml += `</div>`;
+            
             document.getElementById('waMessage').innerHTML = msgHtml;
 
         } catch (err) {
