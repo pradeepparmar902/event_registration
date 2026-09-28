@@ -52,24 +52,24 @@
     <p id="waMessage" style="font-size:0.9rem; color:var(--muted);"></p>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-firestore-compat.min.js"></script>
+<script src="./firebase-config.js?v=5"></script>
 <script>
-    window.addEventListener('error', function(e) {
-        if (e.message && e.message.includes('module')) {
-            document.getElementById('loading').innerHTML = `<span style="color:red">Fatal Error loading Firebase module: ${e.message}</span>`;
-        }
-    });
-</script>
-<script type="module">
-    import { firebaseConfig } from './firebase-config.js?v=4';
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, getDoc, doc, addDoc, collection, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-    const app = initializeApp(firebaseConfig);
-    window.db = getFirestore(app);
-    window.getDoc = getDoc;
-    window.doc = doc;
-    window.addDoc = addDoc;
-    window.collection = collection;
-    window.runTransaction = runTransaction;
+    try {
+        // firebaseConfig is loaded globally by the previous script
+        const app = firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+        
+        // Polyfill the v9 methods we were using so we don't have to rewrite the rest of the code
+        window.getDoc = (ref) => ref.get();
+        window.doc = (db, coll, id) => db.collection(coll).doc(id);
+        window.addDoc = (collRef, data) => collRef.add(data);
+        window.collection = (db, coll) => db.collection(coll);
+        window.runTransaction = (db, updateFunction) => db.runTransaction(updateFunction);
+    } catch(err) {
+        document.getElementById('loading').innerHTML = `<span style="color:red">Fatal Error initializing Firebase: ${err.message}</span>`;
+    }
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/intlTelInput.min.js"></script>
@@ -108,8 +108,9 @@
             
             const eventDoc = await Promise.race([fetchPromise, timeoutPromise]);
             
-            if (!eventDoc.exists()) throw new Error("Event not found");
-            eventData = eventDoc.data();
+            const doesExist = typeof eventDoc.exists === 'function' ? eventDoc.exists() : eventDoc.exists;
+            if (!doesExist) throw new Error("Event not found");
+            eventData = typeof eventDoc.data === 'function' ? eventDoc.data() : eventDoc.data;
             document.getElementById('loading').innerHTML += "<br><span style='color:green;font-size:12px;'>Connected!</span>";
         } catch (e) {
             console.warn('Firebase failed, trying local storage for UI testing...', e);
@@ -243,8 +244,10 @@
                         const counterDoc = await transaction.get(counterRef);
                         
                         let nextNum = startNum;
-                        if (counterDoc.exists()) {
-                            nextNum = (counterDoc.data().count || 0) + 1;
+                        const cExists = typeof counterDoc.exists === 'function' ? counterDoc.exists() : counterDoc.exists;
+                        if (cExists) {
+                            const cData = typeof counterDoc.data === 'function' ? counterDoc.data() : counterDoc.data;
+                            nextNum = (cData.count || 0) + 1;
                             if (nextNum < startNum) nextNum = startNum;
                         }
                         

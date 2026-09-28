@@ -374,12 +374,16 @@
   </div>
 </div>
 
-<script type="module">
-  import { firebaseConfig } from './firebase-config.js?v=2';
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-  import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-  const app = initializeApp(firebaseConfig);
-  window.db = getFirestore(app);
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-firestore-compat.min.js"></script>
+<script src="./firebase-config.js?v=5"></script>
+<script>
+    try {
+        const app = firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+    } catch (e) {
+        console.error("Firebase init failed", e);
+    }
 </script>
 
 <script>
@@ -865,13 +869,14 @@ async function generate(){
 
   // Firebase logic
   try {
-    const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
-    await setDoc(doc(window.db, "events", slug), {
-      name: ev.name, slug: ev.slug, eventDate: ev.date, venue: ev.venue, whatsappGroupLink: ev.wa,
-      header: ev.header, fields: ev.fields,
-      regSettings: ev.regSettings,
-      createdAt: new Date().toISOString()
-    });
+    if (window.db) {
+      await window.db.collection("events").doc(slug).set({
+        name: ev.name, slug: ev.slug, eventDate: ev.date, venue: ev.venue, whatsappGroupLink: ev.wa,
+        header: ev.header, fields: ev.fields,
+        regSettings: ev.regSettings,
+        createdAt: new Date().toISOString()
+      });
+    }
   } catch(e) {
     alert('Firebase error: ' + e.message);
     return;
