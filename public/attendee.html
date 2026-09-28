@@ -282,10 +282,19 @@
                 </div>`;
             }
             
-            let shareText = `I just registered for *${eventData.name || 'the event'}*!\n`;
-            if (regNumber) shareText += `\n*Registration Number:* ${regNumber}`;
-            if (eventData.event_date) shareText += `\n*Date:* ${eventData.event_date}`;
-            if (eventData.venue) shareText += `\n*Venue:* ${eventData.venue}`;
+            let shareText = '';
+            if (eventData.waTemplate && eventData.waTemplate.trim() !== '') {
+                shareText = eventData.waTemplate
+                    .replace(/\{name\}/g, eventData.name || 'the event')
+                    .replace(/\{reg\}/g, regNumber || '')
+                    .replace(/\{date\}/g, eventData.event_date || '')
+                    .replace(/\{venue\}/g, eventData.venue || '');
+            } else {
+                shareText = `I just registered for *${eventData.name || 'the event'}*!\n`;
+                if (regNumber) shareText += `\n*Registration Number:* ${regNumber}`;
+                if (eventData.event_date) shareText += `\n*Date:* ${eventData.event_date}`;
+                if (eventData.venue) shareText += `\n*Venue:* ${eventData.venue}`;
+            }
             
             const waShareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
             

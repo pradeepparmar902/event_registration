@@ -226,6 +226,11 @@
           <input type="url" id="evWA" placeholder="https://chat.whatsapp.com/...">
         </div>
       </div>
+      <div style="margin-top: 15px;">
+        <label class="field-label">WhatsApp Share Message Template</label>
+        <textarea id="waMessageTemplate" class="pf-input" rows="3" style="width:100%; border:1px solid var(--line); border-radius:6px; padding:10px;" placeholder="I just registered for {name}! My Registration Number is {reg}."></textarea>
+        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Available variables: <strong>{name}</strong>, <strong>{reg}</strong>, <strong>{date}</strong>, <strong>{venue}</strong>. Leave blank for the default message.</p>
+      </div>
     </section>
 
     <section>
@@ -472,6 +477,7 @@ function syncFormToActive(){
   ev.date = document.getElementById('evDate').value;
   ev.venue = document.getElementById('evVenue').value;
   ev.wa = document.getElementById('evWA').value;
+  ev.waTemplate = document.getElementById('waMessageTemplate').value;
   ev.regSettings = {
     prefix: document.getElementById('regPrefix').value,
     startNum: document.getElementById('regStartNum').value,
@@ -494,6 +500,7 @@ function populateFormFromEvent(ev){
   document.getElementById('evDate').value = ev.date || '';
   document.getElementById('evVenue').value = ev.venue || '';
   document.getElementById('evWA').value = ev.wa || '';
+  document.getElementById('waMessageTemplate').value = ev.waTemplate || '';
   
   if(ev.regSettings){
     document.getElementById('regPrefix').value = ev.regSettings.prefix || 'EVT';
@@ -872,6 +879,7 @@ async function generate(){
     if (window.db) {
       await window.db.collection("events").doc(slug).set({
         name: ev.name, slug: ev.slug, eventDate: ev.date, venue: ev.venue, whatsappGroupLink: ev.wa,
+        waTemplate: ev.waTemplate || null,
         header: ev.header, fields: ev.fields,
         regSettings: ev.regSettings,
         createdAt: new Date().toISOString()
