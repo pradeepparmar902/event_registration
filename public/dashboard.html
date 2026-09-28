@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f9f9f9;
+            --card: #ffffff;
+            --text: #333333;
+            --muted: #666666;
+            --emerald: #10b981;
+            --emerald-hover: #059669;
+            --line: #e5e7eb;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            background: var(--emerald);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-decoration: none;
+        }
+        .btn:hover { background: var(--emerald-hover); }
+        .btn-outline {
+            background: white;
+            color: var(--emerald);
+            border: 1px solid var(--emerald);
+        }
+        .btn-outline:hover { background: #f0fdf4; }
+        
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 20px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--line);
+        }
+        th {
+            font-weight: 600;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        tr:hover {
+            background: #f8fafc;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1 id="eventName">Loading...</h1>
+        <div style="font-size: 0.85rem; color: var(--muted); margin-top: 4px;" id="eventMeta"></div>
+    </div>
+    <div class="header-actions">
+        <a href="index.html" class="btn btn-outline">Back to Form Builder</a>
+        <button class="btn" onclick="exportCSV()" id="exportBtn" disabled>Export to CSV</button>
+    </div>
+</div>
+
+<div class="card">
+    <div id="tableContainer" class="loading">Fetching data from database...</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-firestore-compat.min.js"></script>
+<script src="./firebase-config.js?v=5"></script>
+<script>
+    try {
+        const app = firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+    } catch(err) {
+        document.getElementById('tableContainer').innerHTML = `<span style="color:red">Fatal Error initializing Firebase: ${err.message}</span>`;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const slug = urlParams.get('slug');
+    let entries = [];
+    let allKeys = new Set(['Registration Number', 'Timestamp']);
+
+    if (!slug) {
+        document.getElementById('tableContainer').innerHTML = "No event specified.";
+    } else {
+        loadData();
+    }
+
+    async function loadData() {
+        try {
+            // Fetch Event Details
+            const eventDoc = await db.collection("events").doc(slug).get();
+            if (eventDoc.exists) {
+                const ev = eventDoc.data();
+                document.getElementById('eventName').textContent = ev.name || 'Untitled Event';
+                document.getElementById('eventMeta').textContent = `${ev.eventDate || ''} - ${ev.venue || ''}`;
+            } else {
+                document.getElementById('eventName').textContent = 'Event Not Found';
+            }
+
+            // Fetch Registrations
+            const snapshot = await db.collection("registrations").where("event_slug", "==", slug).get();
+            entries = [];
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const entry = {
+                    'Registration Number': data.reg_number || '',
+                    'Timestamp': new Date(data.createdAt).toLocaleString(),
+                    ...data.data
+                };
+                
+                // Track all unique keys for table headers
+                Object.keys(entry).forEach(k => {
+                    // Ignore raw country code fields to keep it clean
+                    if (!k.endsWith('_raw')) allKeys.add(k);
+                });
+                
+                entries.push(entry);
+            });
+
+            // Sort newest first
+            entries.sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+
+            renderTable();
+        } catch (e) {
+            console.error(e);
+            document.getElementById('tableContainer').innerHTML = `<span style="color:red">Error loading data: ${e.message}</span>`;
+        }
+    }
+
+    function renderTable() {
+        if (entries.length === 0) {
+            document.getElementById('tableContainer').innerHTML = "No registrations yet.";
+            return;
+        }
+
+        const keysArray = Array.from(allKeys);
+        
+        let html = '<table><thead><tr>';
+        keysArray.forEach(k => {
+            html += `<th>${k}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        entries.forEach(entry => {
+            html += '<tr>';
+            keysArray.forEach(k => {
+                html += `<td>${entry[k] || ''}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+
+        document.getElementById('tableContainer').innerHTML = html;
+        document.getElementById('exportBtn').disabled = false;
+    }
+
+    function exportCSV() {
+        if (entries.length === 0) return;
+        const keysArray = Array.from(allKeys);
+        
+        let csv = keysArray.map(k => `"${String(k).replace(/"/g, '""')}"`).join(',') + '\n';
+        
+        entries.forEach(entry => {
+            csv += keysArray.map(k => `"${String(entry[k] || '').replace(/"/g, '""')}"`).join(',') + '\n';
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Registrations_${slug}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>

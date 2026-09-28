@@ -122,6 +122,8 @@
   .btn-emerald:hover{ background:var(--emerald-d); }
   .btn-ghost{ background:transparent; border:1px solid var(--line); color:var(--ink); }
   .btn-ghost:hover{ border-color:var(--muted); }
+  .btn-outline{ background:transparent; border:1px solid var(--emerald); color:var(--emerald); }
+  .btn-outline:hover{ background:var(--emerald); color:#fff; }
 
   .generate-row{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
 
@@ -207,7 +209,10 @@
   <div class="pane left">
 
     <section>
-      <h2 class="section-title">Your events</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h2 class="section-title" style="margin:0;">Workspace</h2>
+          <input type="text" id="workspaceName" value="My Workspace" onchange="saveWorkspaceName()" style="border:none; border-bottom:1px dashed var(--muted); background:transparent; font-weight:600; font-size:0.9rem; width:150px; text-align:right; color:var(--ink); padding-bottom:2px;" title="Rename your workspace">
+      </div>
       <div class="event-strip" id="eventStrip"></div>
     </section>
 
@@ -355,6 +360,7 @@
 
     <div class="generate-row">
       <button class="btn btn-emerald" onclick="generate()">Generate form + QR code</button>
+      <button class="btn btn-outline" id="btnDashboard" onclick="viewDashboard()" style="margin-left:10px; display:none;">View Dashboard</button>
       <button class="btn btn-ghost" onclick="resetAll()">Reset</button>
     </div>
   </div>
@@ -478,11 +484,17 @@ function makeEvent(name){
     regSettings: { prefix: 'EVT', startNum: '0001', year: '2026' } };
 }
 
+function saveWorkspaceName() {
+  store.workspaceName = document.getElementById('workspaceName').value.trim() || 'My Workspace';
+  saveStore();
+}
+
 function loadStore(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
     if(raw){ 
       store = JSON.parse(raw); 
+      if (store.workspaceName) document.getElementById('workspaceName').value = store.workspaceName;
       Object.values(store.events || {}).forEach(ev => {
         if(ev.fields) ev.fields.forEach(f => f.locked = false);
         if(!ev.regSettings || ev.regSettings.format) ev.regSettings = { prefix: 'EVT', startNum: '0001', year: '2026' };
@@ -613,8 +625,21 @@ function populateFormFromEvent(ev){
 
   renderFields();
   buildPreview();
-  if(ev.generated && ev.slug){ showQR(ev.slug, ev.name); }
-  else { hideQR(); }
+  if(ev.generated && ev.slug){ 
+      showQR(ev.slug, ev.name); 
+      document.getElementById('btnDashboard').style.display = 'inline-block';
+  }
+  else { 
+      hideQR(); 
+      document.getElementById('btnDashboard').style.display = 'none';
+  }
+}
+
+function viewDashboard() {
+  const ev = store.events[store.activeId];
+  if (ev && ev.generated && ev.slug) {
+      window.open(`dashboard.html?slug=${ev.slug}`, '_blank');
+  }
 }
 
 function renderEventList(){
