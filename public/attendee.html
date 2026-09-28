@@ -286,6 +286,12 @@
             document.getElementById('waMessage').innerHTML = msgHtml;
 
         } catch (err) {
+            console.warn('Firebase submission failed:', err);
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').innerHTML = `<span style="color:red">Failed to submit: ${err.message}</span>`;
+            document.getElementById('formContainer').style.display = 'none';
+        }
+    }
 </script>
 
 </body>
