@@ -97,12 +97,20 @@
     }
 
     async function fetchEvent() {
+        document.getElementById('loading').innerHTML += "<br><span style='color:#666;font-size:12px;'>Connecting to Firebase...</span>";
+        
         try {
-            const eventDoc = await window.getDoc(window.doc(window.db, "events", slug));
+            // Add a 5-second timeout to getDoc in case Firebase hangs in Incognito mode
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase connection timed out. (Are you in Incognito mode?)")), 5000));
+            const fetchPromise = window.getDoc(window.doc(window.db, "events", slug));
+            
+            const eventDoc = await Promise.race([fetchPromise, timeoutPromise]);
+            
             if (!eventDoc.exists()) throw new Error("Event not found");
             eventData = eventDoc.data();
+            document.getElementById('loading').innerHTML += "<br><span style='color:green;font-size:12px;'>Connected!</span>";
         } catch (e) {
-            console.warn('Firebase failed, trying local storage for UI testing...');
+            console.warn('Firebase failed, trying local storage for UI testing...', e);
             const storeRaw = localStorage.getItem('eventFormBuilderStore');
             if (storeRaw) {
                 const store = JSON.parse(storeRaw);
@@ -115,12 +123,13 @@
                         venue: ev.venue,
                         whatsapp_group_link: ev.wa,
                         header: ev.header,
-                        fields: ev.fields
+                        fields: ev.fields,
+                        regSettings: ev.regSettings
                     };
                 }
             }
             if (!eventData) {
-                document.getElementById('loading').textContent = "Event not found. (If testing on GitHub pages, make sure you generated the form first in this browser).";
+                document.getElementById('loading').innerHTML = `<span style="color:red">Failed to load event: ${e.message}</span>`;
                 return;
             }
         }
