@@ -296,10 +296,20 @@
                 if (eventData.venue) shareText += `\n*Venue:* ${eventData.venue}`;
             }
             
-            const waShareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+            // Try to find the user's phone number to send the message to themselves
+            let userPhoneNum = '';
+            if (eventData.fields) {
+                const phoneField = eventData.fields.find(f => f.type === 'tel' || f.type === 'tel-country' || f.name.toLowerCase().includes('phone') || f.name.toLowerCase().includes('mobile') || f.name.toLowerCase().includes('whatsapp'));
+                if (phoneField && dataObj[phoneField.name]) {
+                    // Extract only digits for the WhatsApp API
+                    userPhoneNum = String(dataObj[phoneField.name]).replace(/[^0-9]/g, '');
+                }
+            }
+            
+            const waShareUrl = `https://wa.me/${userPhoneNum}?text=${encodeURIComponent(shareText)}`;
             
             msgHtml += `<div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">`;
-            msgHtml += `<a href="${waShareUrl}" target="_blank" style="display:inline-block; padding:12px; background:#25D366; color:white; border-radius:8px; text-decoration:none; font-weight:bold;">📲 Share Confirmation on WhatsApp</a>`;
+            msgHtml += `<a href="${waShareUrl}" target="_blank" style="display:inline-block; padding:12px; background:#25D366; color:white; border-radius:8px; text-decoration:none; font-weight:bold;">📲 Send Confirmation to My WhatsApp</a>`;
             
             if (eventData.whatsapp_group_link) {
                 msgHtml += `<a href="${escapeHtml(eventData.whatsapp_group_link)}" target="_blank" style="display:inline-block; padding:12px; background:var(--emerald); color:white; border-radius:8px; text-decoration:none; font-weight:bold;">💬 Join Event WhatsApp Group</a>`;
