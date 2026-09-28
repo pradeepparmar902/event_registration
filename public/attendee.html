@@ -201,12 +201,13 @@
         setTimeout(() => {
             document.querySelectorAll('.tel-country-input').forEach(input => {
                 const actualName = input.getAttribute('data-name');
-                window.intlTelInput(input, {
+                const iti = window.intlTelInput(input, {
                     utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/utils.js",
                     hiddenInput: actualName, 
                     separateDialCode: true,
                     initialCountry: "in"
                 });
+                input.iti = iti; // Save instance for manual retrieval later
                 // rename the visible input so it doesn't clash with the hidden input in FormData
                 input.name = actualName + '_raw';
             });
@@ -226,6 +227,14 @@
         try {
             const dataObj = {};
             formData.forEach((value, key) => { dataObj[key] = value; });
+
+            // Ensure tel-country fields have the correct full international number
+            document.querySelectorAll('.tel-country-input').forEach(input => {
+                if (input.iti) {
+                    const actualName = input.getAttribute('data-name');
+                    dataObj[actualName] = input.iti.getNumber();
+                }
+            });
 
             let regNumber = null;
             if (eventData.regSettings) {
@@ -298,11 +307,29 @@
             
             // Try to find the user's phone number to send the message to themselves
             let userPhoneNum = '';
-            if (eventData.fields) {
-                const phoneField = eventData.fields.find(f => f.type === 'tel' || f.type === 'tel-country' || f.name.toLowerCase().includes('phone') || f.name.toLowerCase().includes('mobile') || f.name.toLowerCase().includes('whatsapp'));
-                if (phoneField && dataObj[phoneField.name]) {
-                    // Extract only digits for the WhatsApp API
-                    userPhoneNum = String(dataObj[phoneField.name]).replace(/[^0-9]/g, '');
+            
+            // Look through all submitted fields to find a phone number
+            for (const [key, value] of Object.entries(dataObj)) {
+                const k = key.toLowerCase();
+                if (k.includes('phone') || k.includes('mobile') || k.includes('whatsapp') || k.includes('tel')) {
+                    if (value && String(value).trim() !== '') {
+                        userPhoneNum = String(value).replace(/[^0-9]/g, '');
+                        if (userPhoneNum.length >= 10) break;
+                    }
+                }
+            }
+            
+            // If still not found, try to find ANY submitted value that is formatted like an international phone number
+            if (!userPhoneNum || userPhoneNum.length < 10) {
+                for (const value of Object.values(dataObj)) {
+                    const strVal = String(value);
+                    if (strVal.startsWith('+')) {
+                        const cleaned = strVal.replace(/[^0-9]/g, '');
+                        if (cleaned.length >= 10 && cleaned.length <= 15) {
+                            userPhoneNum = cleaned;
+                            break;
+                        }
+                    }
                 }
             }
             
