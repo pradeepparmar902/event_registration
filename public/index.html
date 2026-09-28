@@ -886,7 +886,8 @@ async function generate(){
 function showQR(slug, name){
   // Generate the URL (handles GitHub Pages subdirectory properly)
   const base = window.location.href.split('?')[0].replace(/index\.html$/, '').replace(/\/$/, '');
-  const payload = base + `/attendee.html?slug=${slug}`;
+  const cacheBuster = Date.now();
+  const payload = base + `/attendee.html?slug=${slug}&v=${cacheBuster}`;
   document.getElementById('qrCard').style.display = 'block';
   document.getElementById('qrSub').innerHTML = `Links to the ${escapeHtml(name || 'event')} registration form:<br><br><a href="${payload}" target="_blank" style="color:var(--emerald); font-weight:bold; word-break:break-all;">${payload}</a>`;
   const box = document.getElementById('qrbox');
