@@ -187,6 +187,13 @@
   .pf-header.md{ font-size:1.05rem; }
   .pf-header.lg{ font-size:1.3rem; font-family:'Fraunces', serif; }
   .pf-header-img{ width:100%; max-height:110px; object-fit:cover; border-radius:8px; margin-bottom:12px; display:block; }
+  
+  .var-btn {
+    text-align: left; padding: 6px 10px; font-size: 0.75rem; font-family: monospace;
+    background: var(--paper); border: 1px dashed var(--line); border-radius: 4px;
+    cursor: pointer; color: var(--emerald); transition: all 0.15s ease;
+  }
+  .var-btn:hover { background: var(--emerald); color: white; border-style: solid; }
 </style>
 </head>
 <body>
@@ -225,23 +232,6 @@
           <label class="field-label">WhatsApp group invite link (optional)</label>
           <input type="url" id="evWA" placeholder="https://chat.whatsapp.com/...">
         </div>
-      </div>
-      <div style="margin-top: 15px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-          <label class="field-label" style="margin:0;">WhatsApp Share Message Template</label>
-          <div style="font-size:0.75rem; display:flex; gap:6px; align-items:center;">
-            <span style="color:var(--muted);">WhatsApp Formatting:</span>
-            <button type="button" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; font-weight:bold;" onclick="insertWAFormat('*', '*')">B</button>
-            <button type="button" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; font-style:italic;" onclick="insertWAFormat('_', '_')">I</button>
-            <button type="button" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; text-decoration:line-through;" onclick="insertWAFormat('~', '~')">S</button>
-          </div>
-        </div>
-        <textarea id="waMessageTemplate" class="pf-input" rows="8" style="width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; font-family:monospace; resize:vertical;" placeholder="I just registered for {name}! My Registration Number is {reg}."></textarea>
-        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">
-          Available variables: <strong>{name}</strong> (Attendee Name), <strong>{event_name}</strong>, <strong>{reg}</strong>, <strong>{date}</strong>, <strong>{venue}</strong>.<br>
-          <em>Pro Tip: You can also use ANY field name from your form (e.g. <strong>{Email}</strong>, <strong>{Company}</strong>, <strong>{City}</strong>).</em>
-        </p>
-      </div>
     </section>
 
     <section>
@@ -333,6 +323,32 @@
           <button class="btn btn-ghost" type="button" onclick="document.getElementById('importFile').click()">Import from file</button>
           <span class="hint">.csv or .txt — comma or line separated</span>
           <input type="file" id="importFile" accept=".csv,.txt,text/plain,text/csv" style="display:none" onchange="handleFileImport(event)">
+        </div>
+      </div>
+    </section>
+
+    <section id="waMessageSection">
+      <h2 class="section-title">WhatsApp Confirmation Message</h2>
+      <div style="display:flex; gap:15px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:300px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label class="field-label" style="margin:0;">Message Template</label>
+            <div style="font-size:0.75rem; display:flex; gap:6px; align-items:center;">
+              <span style="color:var(--muted);">Format:</span>
+              <button type="button" class="fmt-btn" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; font-weight:bold;" onclick="insertWAFormat('*', '*')">B</button>
+              <button type="button" class="fmt-btn" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; font-style:italic;" onclick="insertWAFormat('_', '_')">I</button>
+              <button type="button" class="fmt-btn" style="background:var(--paper); border:1px solid var(--line); border-radius:4px; padding:2px 8px; cursor:pointer; text-decoration:line-through;" onclick="insertWAFormat('~', '~')">S</button>
+            </div>
+          </div>
+          <textarea id="waMessageTemplate" class="pf-input" rows="8" style="width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; font-family:monospace; resize:vertical;" placeholder="I just registered for {name}! My Registration Number is {reg}."></textarea>
+          <p style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Leave blank to use the default message.</p>
+        </div>
+        <div style="width:250px; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px;">
+          <label class="field-label" style="margin-top:0;">Variables</label>
+          <p style="font-size:0.7rem; color:var(--muted); margin-bottom:8px;">Click to insert into message:</p>
+          <div id="variablePanel" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:5px;">
+            <!-- Buttons generated here -->
+          </div>
         </div>
       </div>
     </section>
@@ -480,6 +496,45 @@ function loadStore(){
   if(!store.activeId || !store.events[store.activeId]) store.activeId = store.order[0];
 }
 function saveStore(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }catch(e){} }
+
+function updateVariablePanel() {
+  const panel = document.getElementById('variablePanel');
+  if (!panel) return;
+  
+  let html = `
+    <button type="button" class="var-btn" onclick="insertWAVariable('reg')">{reg} (Entry Number)</button>
+    <button type="button" class="var-btn" onclick="insertWAVariable('name')">{name} (Attendee Name)</button>
+    <button type="button" class="var-btn" onclick="insertWAVariable('event_name')">{event_name}</button>
+    <button type="button" class="var-btn" onclick="insertWAVariable('date')">{date}</button>
+    <button type="button" class="var-btn" onclick="insertWAVariable('venue')">{venue}</button>
+  `;
+  
+  fields.forEach(f => {
+      if (f.name && f.name !== 'Full name - Name' && f.name !== 'Full name - Surname' && f.name !== 'Full name - Middle') {
+          html += `<button type="button" class="var-btn" onclick="insertWAVariable('${f.name}')">{${f.name}}</button>`;
+      }
+  });
+  
+  if (fields.some(f => f.type === 'split-name')) {
+      html += `<button type="button" class="var-btn" onclick="insertWAVariable('Full name - Name')">{Full name - Name}</button>`;
+      html += `<button type="button" class="var-btn" onclick="insertWAVariable('Full name - Surname')">{Full name - Surname}</button>`;
+  }
+  
+  panel.innerHTML = html;
+}
+
+function insertWAVariable(varName) {
+  const textarea = document.getElementById('waMessageTemplate');
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const insertStr = `{${varName}}`;
+  
+  textarea.value = text.substring(0, start) + insertStr + text.substring(end);
+  textarea.selectionStart = textarea.selectionEnd = start + insertStr.length;
+  textarea.focus();
+  syncFormToActive();
+}
 
 function insertWAFormat(startTag, endTag) {
   const textarea = document.getElementById('waMessageTemplate');
@@ -683,6 +738,7 @@ function renderFields(){
       else if(act === 'delete') removeField(i);
     };
   });
+  updateVariablePanel();
 }
 
 function fieldEditHtml(f, i){
@@ -995,6 +1051,7 @@ loadStore();
 renderEventList();
 populateFormFromEvent(store.events[store.activeId]);
 wireLiveSync();
+updateVariablePanel();
 </script>
 </body>
 </html>
