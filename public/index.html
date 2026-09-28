@@ -237,7 +237,10 @@
           </div>
         </div>
         <textarea id="waMessageTemplate" class="pf-input" rows="8" style="width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; font-family:monospace; resize:vertical;" placeholder="I just registered for {name}! My Registration Number is {reg}."></textarea>
-        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Available variables: <strong>{name}</strong>, <strong>{reg}</strong>, <strong>{date}</strong>, <strong>{venue}</strong>. Leave blank for the default message.</p>
+        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">
+          Available variables: <strong>{name}</strong> (Attendee Name), <strong>{event_name}</strong>, <strong>{reg}</strong>, <strong>{date}</strong>, <strong>{venue}</strong>.<br>
+          <em>Pro Tip: You can also use ANY field name from your form (e.g. <strong>{Email}</strong>, <strong>{Company}</strong>, <strong>{City}</strong>).</em>
+        </p>
       </div>
     </section>
 

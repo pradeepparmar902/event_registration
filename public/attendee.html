@@ -293,15 +293,45 @@
             
             let shareText = '';
             if (eventData.waTemplate && eventData.waTemplate.trim() !== '') {
-                shareText = eventData.waTemplate
-                    .replace(/\{name\}/g, eventData.name || 'the event')
-                    .replace(/\{reg\}/g, regNumber || '')
-                    .replace(/\{date\}/g, eventData.event_date || '')
-                    .replace(/\{venue\}/g, eventData.venue || '');
+                shareText = eventData.waTemplate;
+                
+                // Replace default event variables
+                shareText = shareText
+                    .replace(/\{event_name\}/ig, eventData.name || '')
+                    .replace(/\{reg\}/ig, regNumber || '')
+                    .replace(/\{date\}/ig, eventData.eventDate || '')
+                    .replace(/\{venue\}/ig, eventData.venue || '');
+
+                // Dynamically replace any {Field Name} with the submitted data
+                for (const [key, value] of Object.entries(dataObj)) {
+                    // Escape key for regex
+                    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`\\{${escapedKey}\\}`, 'ig');
+                    shareText = shareText.replace(regex, value || '');
+                }
+
+                // If they specifically used {name}, try to find the attendee's name
+                if (shareText.toLowerCase().includes('{name}')) {
+                    let attendeeName = '';
+                    if (dataObj['Full name']) attendeeName = dataObj['Full name'];
+                    else if (dataObj['Full name - Name']) {
+                        attendeeName = dataObj['Full name - Name'];
+                        if (dataObj['Full name - Surname']) attendeeName += ' ' + dataObj['Full name - Surname'];
+                    } else {
+                        for (const [k, v] of Object.entries(dataObj)) {
+                            if (k.toLowerCase().includes('name')) {
+                                attendeeName = v;
+                                break;
+                            }
+                        }
+                    }
+                    if (!attendeeName) attendeeName = eventData.name || ''; // Fallback to event name
+                    shareText = shareText.replace(/\{name\}/ig, attendeeName);
+                }
             } else {
                 shareText = `I just registered for *${eventData.name || 'the event'}*!\n`;
                 if (regNumber) shareText += `\n*Registration Number:* ${regNumber}`;
-                if (eventData.event_date) shareText += `\n*Date:* ${eventData.event_date}`;
+                if (eventData.eventDate) shareText += `\n*Date:* ${eventData.eventDate}`;
                 if (eventData.venue) shareText += `\n*Venue:* ${eventData.venue}`;
             }
             
