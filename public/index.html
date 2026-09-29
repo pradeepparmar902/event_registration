@@ -1056,7 +1056,7 @@ function fieldEditHtml(f, i){
                    ${parentOptions}
                 </select>
             </div>
-            <div style="flex:1;">
+            <div style="flex:1;" id="editCondValueContainer-${i}">
                 <label style="display:block; margin-bottom:4px; font-weight:500;">Equals value:</label>
                 <input type="text" id="editCondValue-${i}" value="${escapeHtml(f.dependsValue || '')}" placeholder="e.g. Staff" class="pf-input" style="width:100%; font-size:0.8rem; padding:4px 8px;">
             </div>
@@ -1075,10 +1075,39 @@ function wireEditForm(f, i){
   const typeSel = document.getElementById(`editType-${i}`);
   const optWrap = document.getElementById(`editOptionsWrap-${i}`);
   typeSel.onchange = () => { optWrap.style.display = typeSel.value === 'select' ? 'block' : 'none'; };
+  
+  const condFieldSel = document.getElementById(`editCondField-${i}`);
+  if (condFieldSel) {
+      const updateCondValueUI = () => {
+          const parentName = condFieldSel.value;
+          const parentF = fields.find(tf => tf.name === parentName);
+          const container = document.getElementById(`editCondValueContainer-${i}`);
+          
+          let currentValue = '';
+          const existingInput = document.getElementById(`editCondValue-${i}`);
+          if (existingInput) currentValue = existingInput.value;
+          
+          if (parentF && (parentF.type === 'select' || parentF.type === 'gender')) {
+              let opts = parentF.type === 'gender' ? ['Male', 'Female', 'Other', 'Prefer not to say'] : (parentF.options || []);
+              let optsHtml = opts.map(o => `<option value="${escapeHtml(o)}" ${currentValue === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+              container.innerHTML = `<label style="display:block; margin-bottom:4px; font-weight:500;">Equals value:</label>
+                <select id="editCondValue-${i}" class="pf-input" style="width:100%; font-size:0.8rem; padding:4px 8px;">
+                   <option value="">-- Select Value --</option>
+                   ${optsHtml}
+                </select>`;
+          } else {
+              container.innerHTML = `<label style="display:block; margin-bottom:4px; font-weight:500;">Equals value:</label>
+                <input type="text" id="editCondValue-${i}" value="${escapeHtml(currentValue)}" placeholder="e.g. Staff" class="pf-input" style="width:100%; font-size:0.8rem; padding:4px 8px;">`;
+          }
+      };
+      
+      condFieldSel.onchange = updateCondValueUI;
+      updateCondValueUI();
+  }
+
   document.querySelector(`[data-save="${i}"]`).onclick = () => saveFieldEdit(i);
   document.querySelector(`[data-cancel="${i}"]`).onclick = () => { editingIndex = null; renderFields(); };
 }
-
 function saveFieldEdit(i){
   const f = fields[i];
   const name = document.getElementById(`editName-${i}`).value.trim();
@@ -1379,4 +1408,8 @@ updateVariablePanel();
 </script>
 </body>
 </html>
+
+
+
+
 
