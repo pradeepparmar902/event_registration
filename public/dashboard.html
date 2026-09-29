@@ -145,6 +145,25 @@
         select.status-sel.st-NeedInfo   { background: #fef9c3; color: #ca8a04; }
         td.status-cell { padding: 8px 12px; }
 
+        /* ── Remarks column ── */
+        td.remarks-cell { padding: 6px 10px; min-width: 180px; }
+        input.remarks-inp {
+            width: 100%;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            padding: 5px 8px;
+            font-size: 0.82rem;
+            font-family: inherit;
+            color: var(--text);
+            background: transparent;
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        input.remarks-inp:hover { border-color: var(--line); background: #f8fafc; }
+        input.remarks-inp:focus { border-color: var(--emerald); background: white; }
+        input.remarks-inp.saving { border-color: #fbbf24; background: #fefce8; }
+        input.remarks-inp.saved  { border-color: #86efac; background: #f0fdf4; }
+
         /* ── Column Settings Modal ── */
         .modal-backdrop {
             display: none;
@@ -292,6 +311,7 @@
     let entries = [];
     let entryDocIds = [];      // parallel: Firestore doc ID per entry
     let entryStatuses = [];    // parallel: status per entry
+    let entryRemarks = [];     // parallel: remarks per entry
     let allKeys = [];
     let colOrder = [];
     let colVisible = {};
@@ -320,6 +340,7 @@
             entries = [];
             entryDocIds = [];
             entryStatuses = [];
+            entryRemarks = [];
             const keySet = new Set(['Registration Number', 'Timestamp']);
 
             snapshot.forEach(doc => {
@@ -333,14 +354,16 @@
                 entries.push(entry);
                 entryDocIds.push(doc.id);
                 entryStatuses.push(data.status || 'Pending');
+                entryRemarks.push(data.remarks || '');
             });
 
             // Sort newest first keeping parallel arrays in sync
-            const paired = entries.map((e, i) => ({ e, id: entryDocIds[i], st: entryStatuses[i] }));
+            const paired = entries.map((e, i) => ({ e, id: entryDocIds[i], st: entryStatuses[i], rm: entryRemarks[i] }));
             paired.sort((x, y) => new Date(y.e.Timestamp) - new Date(x.e.Timestamp));
             entries       = paired.map(p => p.e);
             entryDocIds   = paired.map(p => p.id);
             entryStatuses = paired.map(p => p.st);
+            entryRemarks  = paired.map(p => p.rm);
 
             // Merge saved col prefs with discovered keys
             const saved = loadColPrefs();
@@ -372,7 +395,6 @@
         const newStatus = sel.value;
         const docId = entryDocIds[idx];
         if (!docId) return;
-        // Update badge color immediately (optimistic)
         entryStatuses[idx] = newStatus;
         const statusKey = newStatus.replace(' ', '');
         sel.className = 'status-sel st-' + statusKey;
@@ -383,6 +405,25 @@
             await db.collection('registrations').doc(docId).update({ status: newStatus });
         } catch(e) {
             alert('Failed to save status: ' + e.message);
+        }
+    }
+
+    /* ── Save remarks to Firestore ── */
+    async function saveRemarks(idx, inp) {
+        const newRemark = inp.value.trim();
+        const docId = entryDocIds[idx];
+        if (!docId) return;
+        if (newRemark === (entryRemarks[idx] || '')) return; // no change
+        entryRemarks[idx] = newRemark;
+        inp.classList.add('saving');
+        try {
+            await db.collection('registrations').doc(docId).update({ remarks: newRemark });
+            inp.classList.remove('saving');
+            inp.classList.add('saved');
+            setTimeout(() => inp.classList.remove('saved'), 1500);
+        } catch(e) {
+            inp.classList.remove('saving');
+            alert('Failed to save remark: ' + e.message);
         }
     }
 
@@ -415,6 +456,8 @@
                 ${statusOptsHtml}
             </select>
         </th>`;
+        // Fixed Remarks column
+        html += `<th style="min-width:200px;"><span class="th-label">Remarks</span></th>`;
         visibleKeys.forEach((k, ci) => {
             const opts = Array.from(uniqueVals[k]).sort();
             const cur = activeFilters[k] || '';
@@ -452,6 +495,13 @@
                         ${statusOpts.map(s => `<option value="${s}" ${status === s ? 'selected' : ''}>${s}</option>`).join('')}
                     </select>
                 </div>
+            </td>`;
+            // Remarks cell
+            const remark = entryRemarks[idx] || '';
+            html += `<td class="remarks-cell">
+                <input class="remarks-inp" type="text" value="${escH(remark)}" placeholder="Add remark…"
+                    onblur="saveRemarks(${idx}, this)"
+                    onkeydown="if(event.key==='Enter'){this.blur();}">
             </td>`;
             visibleKeys.forEach(k => {
                 html += `<td>${escH(String(entry[k] || ''))}</td>`;
@@ -634,12 +684,13 @@
             return isRowVisible(e) && statusMatch;
         });
 
-        const allCols = ['Status', ...visibleKeys];
+        const allCols = ['Status', 'Remarks', ...visibleKeys];
         let csv = allCols.map(k => `"${String(k).replace(/"/g,'""')}"`).join(',') + '\n';
         visibleEntries.forEach((entry, i) => {
             const origIdx = entries.indexOf(entry);
             const status = entryStatuses[origIdx] || 'Pending';
-            const row = [status, ...visibleKeys.map(k => String(entry[k] || ''))];
+            const remark = entryRemarks[origIdx] || '';
+            const row = [status, remark, ...visibleKeys.map(k => String(entry[k] || ''))];
             csv += row.map(v => `"${v.replace(/"/g,'""')}"`).join(',') + '\n';
         });
 
