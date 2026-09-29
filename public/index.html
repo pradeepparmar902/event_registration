@@ -9,33 +9,35 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+  
   :root{
-    --ink:#1B2320; --paper:#F7F4EC; --emerald:#1F6F5C; --emerald-d:#154F42;
-    --clay:#B5652F; --line:#DCD5C4; --line-soft:#E9E4D6; --card:#FFFFFF;
-    --muted:#6B6357;
+    --ink:#0f172a; --paper:#f8fafc; --emerald:#2563eb; --emerald-d:#1d4ed8;
+    --clay:#f59e0b; --line:#e2e8f0; --line-soft:#f1f5f9; --card:#ffffff;
+    --muted:#64748b;
     box-sizing:border-box;
     padding-top:env(safe-area-inset-top,0px);
     padding-bottom:env(safe-area-inset-bottom,0px);
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --ink:#EDE9DD; --paper:#15181A; --card:#1E2225; --line:#33383A; --line-soft:#2A2E30; --muted:#9A9488;
-      --emerald:#3FA98A; --emerald-d:#2E8069; --clay:#D48653;
+      --ink:#f8fafc; --paper:#0f172a; --card:#1e293b; --line:#334155; --line-soft:#1e293b; --muted:#94a3b8;
+      --emerald:#3b82f6; --emerald-d:#2563eb; --clay:#fbbf24;
     }
   }
   :root[data-theme="dark"]{
-    --ink:#EDE9DD; --paper:#15181A; --card:#1E2225; --line:#33383A; --line-soft:#2A2E30; --muted:#9A9488;
-    --emerald:#3FA98A; --emerald-d:#2E8069; --clay:#D48653;
+    --ink:#f8fafc; --paper:#0f172a; --card:#1e293b; --line:#334155; --line-soft:#1e293b; --muted:#94a3b8;
+    --emerald:#3b82f6; --emerald-d:#2563eb; --clay:#fbbf24;
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
   html{scroll-padding-top:env(safe-area-inset-top,0px)}
   body{
     background:var(--paper); color:var(--ink);
-    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    font-family:'Inter', -apple-system, sans-serif;
     -webkit-font-smoothing:antialiased;
   }
-  h1,h2,h3,.serif{font-family:'Fraunces', Georgia, serif}
+  h1,h2,h3,.serif{font-family:'Inter', -apple-system, sans-serif; font-weight:600;}
 
   .topbar{
     padding:16px 20px calc(14px + env(safe-area-inset-top,0px));
