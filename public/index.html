@@ -487,31 +487,39 @@ function initAuth() {
       document.getElementById('authModal').style.display = 'none';
       
       const adminEmail = 'pradeepparmar902@yahoo.com';
-      if (user.email !== adminEmail) {
-         try {
-           const userDocRef = window.db.collection('users').doc(user.uid);
-           const docSnap = await userDocRef.get();
-           if (!docSnap.exists) {
-              await userDocRef.set({
-                 uid: user.uid,
-                 email: user.email || user.phoneNumber || 'unknown',
-                 status: 'pending',
-                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
-              });
-              document.getElementById('pendingModal').style.display = 'flex';
-              return;
-           } else {
-              const userData = docSnap.data();
-              if (userData.status !== 'approved') {
-                 document.getElementById('pendingModal').style.display = 'flex';
-                 return;
-              }
-           }
-         } catch(err) {
-           console.error("Error checking user status:", err);
-           // Fallback if rules deny read but they are just pending
-           document.getElementById('pendingModal').style.display = 'flex';
-           return;
+      let isSuperAdmin = (user.email === adminEmail);
+      
+      try {
+         const userDocRef = window.db.collection('users').doc(user.uid);
+         const docSnap = await userDocRef.get();
+         if (!docSnap.exists) {
+            // Even the hardcoded superadmin gets a document now, just to be safe
+            await userDocRef.set({
+               uid: user.uid,
+               email: user.email || user.phoneNumber || 'unknown',
+               status: isSuperAdmin ? 'approved' : 'pending',
+               role: isSuperAdmin ? 'superadmin' : 'coordinator',
+               createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            if (!isSuperAdmin) {
+               document.getElementById('pendingModal').style.display = 'flex';
+               return;
+            }
+         } else {
+            const userData = docSnap.data();
+            if (userData.role === 'superadmin') {
+                isSuperAdmin = true;
+            }
+            if (!isSuperAdmin && userData.status !== 'approved') {
+               document.getElementById('pendingModal').style.display = 'flex';
+               return;
+            }
+         }
+      } catch(err) {
+         console.error("Error checking user status:", err);
+         if (!isSuperAdmin) {
+            document.getElementById('pendingModal').style.display = 'flex';
+            return;
          }
       }
 
@@ -529,7 +537,7 @@ function initAuth() {
          header.appendChild(btn);
       }
       
-      if (user.email === adminEmail && !document.getElementById('adminLink')) {
+      if (isSuperAdmin && !document.getElementById('adminLink')) {
          const adminBtn = document.createElement('a');
          adminBtn.id = 'adminLink';
          adminBtn.className = 'btn btn-outline';

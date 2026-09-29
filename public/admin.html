@@ -78,15 +78,28 @@
         document.body.innerHTML = `<span style="color:red">Fatal Error: ${err.message}</span>`;
     }
 
-    firebase.auth().onAuthStateChanged(user => {
+    firebase.auth().onAuthStateChanged(async user => {
         if (user) {
-            if (user.email === SUPERADMIN_EMAIL) {
+            let isSuperAdmin = (user.email === SUPERADMIN_EMAIL);
+            
+            if (!isSuperAdmin) {
+                try {
+                    const docSnap = await db.collection("users").doc(user.uid).get();
+                    if (docSnap.exists && docSnap.data().role === 'superadmin') {
+                        isSuperAdmin = true;
+                    }
+                } catch(err) {
+                    console.error("Error checking admin status:", err);
+                }
+            }
+
+            if (isSuperAdmin) {
                 document.getElementById('authBlock').style.display = 'none';
                 document.getElementById('adminApp').style.display = 'block';
-                document.getElementById('adminEmailTxt').textContent = 'Logged in as ' + user.email;
+                document.getElementById('adminEmailTxt').textContent = 'Logged in as ' + (user.email || user.phoneNumber);
                 loadUsers();
             } else {
-                alert("Access Denied: You are not the Superadmin.");
+                alert("Access Denied: You are not a Superadmin.");
                 firebase.auth().signOut();
             }
         } else {
@@ -102,10 +115,10 @@
     async function loadUsers() {
         try {
             const snapshot = await db.collection("users").get();
-            let html = '<table><thead><tr><th>Email / Phone</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
+            let html = '<table><thead><tr><th>Email / Phone</th><th>Status</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
             
             if (snapshot.empty) {
-                html += '<tr><td colspan="4" style="text-align:center; padding: 30px; color: var(--muted);"><strong>No users found.</strong><br><br>New users will only appear here <em>after</em> they try logging into the Form Builder for the first time.</td></tr>';
+                html += '<tr><td colspan="5" style="text-align:center; padding: 30px; color: var(--muted);"><strong>No users found.</strong><br><br>New users will only appear here <em>after</em> they try logging into the Form Builder for the first time.</td></tr>';
             } else {
                 snapshot.forEach(doc => {
                     const data = doc.data();
@@ -113,13 +126,17 @@
                     if(data.status === 'approved') statusClass = 'status-approved';
                     if(data.status === 'revoked') statusClass = 'status-revoked';
                     
+                    const currentRole = data.role || 'coordinator';
+                    
                     html += `<tr>
                         <td>${data.email || 'N/A'}</td>
                         <td><span class="status-badge ${statusClass}">${data.status.toUpperCase()}</span></td>
+                        <td style="text-transform: capitalize;">${currentRole}</td>
                         <td>${data.createdAt ? data.createdAt.toDate().toLocaleString() : 'N/A'}</td>
-                        <td>
+                        <td style="display:flex; gap:8px;">
                             ${data.status !== 'approved' ? `<button class="btn" style="padding:4px 8px; font-size:0.8rem;" onclick="updateStatus('${doc.id}', 'approved')">Approve</button>` : ''}
                             ${data.status === 'approved' ? `<button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="updateStatus('${doc.id}', 'revoked')">Revoke</button>` : ''}
+                            ${currentRole === 'coordinator' ? `<button class="btn btn-outline" style="padding:4px 8px; font-size:0.8rem;" onclick="updateRole('${doc.id}', 'superadmin')">Make Superadmin</button>` : `<button class="btn btn-outline" style="padding:4px 8px; font-size:0.8rem;" onclick="updateRole('${doc.id}', 'coordinator')">Remove Superadmin</button>`}
                         </td>
                     </tr>`;
                 });
@@ -137,6 +154,17 @@
             loadUsers();
         } catch (e) {
             alert('Failed to update: ' + e.message);
+        }
+    }
+
+    async function updateRole(uid, newRole) {
+        if(confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+            try {
+                await db.collection("users").doc(uid).update({ role: newRole });
+                loadUsers();
+            } catch (e) {
+                alert('Failed to update role: ' + e.message);
+            }
         }
     }
 </script>
