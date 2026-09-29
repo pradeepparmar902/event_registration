@@ -513,18 +513,30 @@
             const def = fieldDefMap[k];
             const type = def ? def.type : 'text';
 
-            html += `<div class="edit-field-row"><label>${escH(k)}</label>`;
+            // Conditional field support
+            const depOn  = def && def.dependsOn  ? def.dependsOn  : '';
+            const depVal = def && def.dependsValue ? def.dependsValue : '';
+            let depAttrs = '';
+            let rowStyle = '';
+            if (depOn && depVal) {
+                const parentVal = String(entry[depOn] || '').toLowerCase();
+                const shouldShow = parentVal === depVal.toLowerCase();
+                depAttrs = `data-dep-on="${escH(depOn)}" data-dep-val="${escH(depVal.toLowerCase())}"`;
+                rowStyle = shouldShow ? '' : 'display:none;';
+            }
+
+            html += `<div class="edit-field-row" ${depAttrs} style="${rowStyle}"><label>${escH(k)}</label>`;
 
             if (type === 'gender') {
                 const genderOpts = ['Male', 'Female', 'Other', 'Prefer not to say'];
-                html += `<select data-key="${escH(k)}">`;
+                html += `<select data-key="${escH(k)}" onchange="checkEditConditions()">`;
                 genderOpts.forEach(o => {
                     html += `<option value="${escH(o)}" ${val === o ? 'selected' : ''}>${escH(o)}</option>`;
                 });
                 html += `</select>`;
 
             } else if (type === 'select' && def && def.options && def.options.length) {
-                html += `<select data-key="${escH(k)}">`;
+                html += `<select data-key="${escH(k)}" onchange="checkEditConditions()">`;
                 html += `<option value="">— select —</option>`;
                 def.options.forEach(o => {
                     html += `<option value="${escH(o)}" ${val === o ? 'selected' : ''}>${escH(o)}</option>`;
@@ -532,14 +544,13 @@
                 html += `</select>`;
 
             } else if (type === 'address') {
-                html += `<textarea data-key="${escH(k)}" rows="3">${escH(val)}</textarea>`;
+                html += `<textarea data-key="${escH(k)}" rows="3" oninput="checkEditConditions()">${escH(val)}</textarea>`;
 
             } else if (k === 'Timestamp' || k === 'Registration Number') {
-                // Read-only fields
                 html += `<input type="text" data-key="${escH(k)}" value="${escH(val)}" readonly style="background:#f8fafc; color:var(--muted); cursor:not-allowed;">`;
 
             } else {
-                html += `<input type="text" data-key="${escH(k)}" value="${escH(val)}">`;
+                html += `<input type="text" data-key="${escH(k)}" value="${escH(val)}" oninput="checkEditConditions()">`;
             }
 
             html += `</div>`;
@@ -549,6 +560,21 @@
         document.getElementById('editModal').classList.add('open');
         const first = body.querySelector('input:not([readonly]), select, textarea');
         if (first) setTimeout(() => first.focus(), 50);
+    }
+
+    /* Live conditional show/hide inside the Edit modal */
+    function checkEditConditions() {
+        const body = document.getElementById('editModalBody');
+        body.querySelectorAll('.edit-field-row[data-dep-on]').forEach(function(row) {
+            const depOn  = row.getAttribute('data-dep-on');
+            const depVal = (row.getAttribute('data-dep-val') || '').toLowerCase();
+            // Find the parent control (could be input or select)
+            const parentEl = body.querySelector('[data-key="' + depOn + '"]');
+            const currentVal = parentEl ? (parentEl.value || '').toLowerCase() : '';
+            const shouldShow = currentVal === depVal;
+            row.style.display = shouldShow ? 'block' : 'none';
+            // Toggle required-ish visual only (no actual required attr needed in modal)
+        });
     }
 
     function closeEditModal() {
