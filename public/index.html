@@ -249,6 +249,12 @@
           <input type="text" id="evVenue" placeholder="e.g. Hyatt Regency, Pune">
         </div>
       </div>
+      <div class="row2" style="grid-template-columns: 1fr;">
+        <div>
+          <label class="field-label">Important Instructions / Message (optional)</label>
+          <textarea id="evInstructions" rows="3" placeholder="e.g. Please bring your ID card for verification." style="width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-family:inherit; resize:vertical; font-size: 0.85rem; color: var(--ink);"></textarea>
+        </div>
+      </div>
       <div class="row2">
         <div>
           <label class="field-label">WhatsApp group invite link (optional)</label>
@@ -814,6 +820,7 @@ function syncFormToActive(){
   ev.formTitle = document.getElementById('evFormTitle').value;
   ev.date = document.getElementById('evDate').value;
   ev.venue = document.getElementById('evVenue').value;
+  ev.instructions = document.getElementById('evInstructions').value;
   ev.wa = document.getElementById('evWA').value;
   ev.coordinatorWA = itiCoordinator ? itiCoordinator.getNumber() : document.getElementById('evCoordinatorWA').value;
   ev.waTemplate = document.getElementById('waMessageTemplate').value;
@@ -839,6 +846,7 @@ function populateFormFromEvent(ev){
   document.getElementById('evFormTitle').value = ev.formTitle || '';
   document.getElementById('evDate').value = ev.date || '';
   document.getElementById('evVenue').value = ev.venue || '';
+  document.getElementById('evInstructions').value = ev.instructions || '';
   document.getElementById('evWA').value = ev.wa || '';
   if (itiCoordinator) {
     itiCoordinator.setNumber(ev.coordinatorWA || '');

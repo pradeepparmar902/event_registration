@@ -44,6 +44,7 @@
     <div id="headerRender"></div>
     <div class="ev-name" id="eventName"></div>
     <div class="ev-meta" id="eventMeta"></div>
+    <div id="eventInstructions" style="margin-bottom: 24px; padding: 12px; background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 0.9rem; line-height: 1.5; display: none;"></div>
     
     <form id="registrationForm" onsubmit="submitForm(event)">
         <div id="fieldsRender"></div>
@@ -174,6 +175,15 @@
         if (eventData.venue) metaList.push(eventData.venue);
         
         document.getElementById('eventMeta').textContent = metaList.join(' · ');
+
+        const instEl = document.getElementById('eventInstructions');
+        if (eventData.instructions && eventData.instructions.trim()) {
+            // Support basic line breaks
+            instEl.innerHTML = escapeHtml(eventData.instructions).replace(/\n/g, '<br>');
+            instEl.style.display = 'block';
+        } else {
+            instEl.style.display = 'none';
+        }
 
         // Fields
         let fieldsHtml = '';
