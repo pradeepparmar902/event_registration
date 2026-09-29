@@ -237,6 +237,13 @@
           <label class="field-label">WhatsApp group invite link (optional)</label>
           <input type="url" id="evWA" placeholder="https://chat.whatsapp.com/...">
         </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label class="field-label">Coordinator WhatsApp Number (for alerts)</label>
+          <input type="text" id="evCoordinatorWA" placeholder="e.g. 919876543210 (include country code)">
+        </div>
+      </div>
     </section>
 
     <section>
@@ -713,6 +720,7 @@ function syncFormToActive(){
   ev.date = document.getElementById('evDate').value;
   ev.venue = document.getElementById('evVenue').value;
   ev.wa = document.getElementById('evWA').value;
+  ev.coordinatorWA = document.getElementById('evCoordinatorWA').value;
   ev.waTemplate = document.getElementById('waMessageTemplate').value;
   ev.regSettings = {
     prefix: document.getElementById('regPrefix').value,
@@ -736,6 +744,7 @@ function populateFormFromEvent(ev){
   document.getElementById('evDate').value = ev.date || '';
   document.getElementById('evVenue').value = ev.venue || '';
   document.getElementById('evWA').value = ev.wa || '';
+  document.getElementById('evCoordinatorWA').value = ev.coordinatorWA || '';
   document.getElementById('waMessageTemplate').value = ev.waTemplate || '';
   
   if(ev.regSettings){
@@ -1129,6 +1138,7 @@ async function generate(){
     if (window.db) {
       await window.db.collection("events").doc(slug).set({
         name: ev.name, slug: ev.slug, eventDate: ev.date, venue: ev.venue, whatsappGroupLink: ev.wa,
+        coordinatorWA: ev.coordinatorWA || null,
         waTemplate: ev.waTemplate || null,
         header: ev.header, fields: ev.fields,
         regSettings: ev.regSettings,
@@ -1191,7 +1201,7 @@ function showToast(msg){
 }
 
 function wireLiveSync(){
-  ['evName','evDate','evVenue','evWA'].forEach(id => {
+  ['evName','evDate','evVenue','evWA','evCoordinatorWA'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       syncFormToActive();
       buildPreview();

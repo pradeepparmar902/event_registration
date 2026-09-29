@@ -125,6 +125,8 @@
                         event_date: ev.date,
                         venue: ev.venue,
                         whatsapp_group_link: ev.wa,
+                        coordinatorWA: ev.coordinatorWA,
+                        waTemplate: ev.waTemplate,
                         header: ev.header,
                         fields: ev.fields,
                         regSettings: ev.regSettings
@@ -335,38 +337,47 @@
                 if (eventData.venue) shareText += `\n*Venue:* ${eventData.venue}`;
             }
             
-            // Try to find the user's phone number to send the message to themselves
-            let userPhoneNum = '';
+            let targetPhoneNum = '';
             
-            // Look through all submitted fields to find a phone number
-            for (const [key, value] of Object.entries(dataObj)) {
-                const k = key.toLowerCase();
-                if (k.includes('phone') || k.includes('mobile') || k.includes('whatsapp') || k.includes('tel')) {
-                    if (value && String(value).trim() !== '') {
-                        userPhoneNum = String(value).replace(/[^0-9]/g, '');
-                        if (userPhoneNum.length >= 10) break;
+            // Prioritize the Event Coordinator's number if defined
+            if (eventData.coordinatorWA && eventData.coordinatorWA.trim() !== '') {
+                targetPhoneNum = eventData.coordinatorWA.replace(/[^0-9]/g, '');
+            } else {
+                // Fallback: Find the user's phone number to send the message to themselves
+                for (const [key, value] of Object.entries(dataObj)) {
+                    const k = key.toLowerCase();
+                    if (k.includes('phone') || k.includes('mobile') || k.includes('whatsapp') || k.includes('tel')) {
+                        if (value && String(value).trim() !== '') {
+                            targetPhoneNum = String(value).replace(/[^0-9]/g, '');
+                            if (targetPhoneNum.length >= 10) break;
+                        }
                     }
                 }
-            }
-            
-            // If still not found, try to find ANY submitted value that is formatted like an international phone number
-            if (!userPhoneNum || userPhoneNum.length < 10) {
-                for (const value of Object.values(dataObj)) {
-                    const strVal = String(value);
-                    if (strVal.startsWith('+')) {
-                        const cleaned = strVal.replace(/[^0-9]/g, '');
-                        if (cleaned.length >= 10 && cleaned.length <= 15) {
-                            userPhoneNum = cleaned;
-                            break;
+                
+                // If still not found, try to find ANY submitted value that is formatted like an international phone number
+                if (!targetPhoneNum || targetPhoneNum.length < 10) {
+                    for (const value of Object.values(dataObj)) {
+                        const strVal = String(value);
+                        if (strVal.startsWith('+')) {
+                            const cleaned = strVal.replace(/[^0-9]/g, '');
+                            if (cleaned.length >= 10 && cleaned.length <= 15) {
+                                targetPhoneNum = cleaned;
+                                break;
+                            }
                         }
                     }
                 }
             }
             
-            const waShareUrl = `https://wa.me/${userPhoneNum}?text=${encodeURIComponent(shareText)}`;
+            const waShareUrl = `https://wa.me/${targetPhoneNum}?text=${encodeURIComponent(shareText)}`;
             
             msgHtml += `<div style="display:flex; flex-direction:column; gap:12px; margin-top:20px;">`;
-            msgHtml += `<a href="${waShareUrl}" target="_blank" style="display:inline-block; padding:12px; background:#25D366; color:white; border-radius:8px; text-decoration:none; font-weight:bold;">📲 Send Confirmation to My WhatsApp</a>`;
+            
+            const btnText = (eventData.coordinatorWA && eventData.coordinatorWA.trim() !== '') 
+                ? '📲 Send Registration Alert to Coordinator' 
+                : '📲 Send Confirmation to My WhatsApp';
+                
+            msgHtml += `<a href="${waShareUrl}" target="_blank" style="display:inline-block; padding:12px; background:#25D366; color:white; border-radius:8px; text-decoration:none; font-weight:bold;">${btnText}</a>`;
             
             if (eventData.whatsapp_group_link) {
                 msgHtml += `<a href="${escapeHtml(eventData.whatsapp_group_link)}" target="_blank" style="display:inline-block; padding:12px; background:var(--emerald); color:white; border-radius:8px; text-decoration:none; font-weight:bold;">💬 Join Event WhatsApp Group</a>`;
