@@ -392,27 +392,46 @@
     <h2 style="margin-top:0;">Welcome to Form Builder</h2>
     <p style="color:var(--muted); font-size:0.9rem; margin-bottom:16px;">Please log in or sign up to save your events to the database.</p>
     
-    <div id="authError" style="color:red; font-size:0.85rem; margin-bottom:10px;"></div>
-
-    <div id="loginForm">
-      <input type="email" id="authEmail" placeholder="Email" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
-      <input type="password" id="authPass" placeholder="Password" class="pf-input" style="margin-bottom:16px; width:100%; box-sizing:border-box;">
-      <button class="btn btn-emerald" style="width:100%; margin-bottom:10px;" onclick="doLogin()">Log In</button>
-      <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('loginForm').style.display='none'; document.getElementById('signupForm').style.display='block';">Need an account? Sign Up</button>
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+      <button class="btn btn-outline" style="flex:1;" onclick="switchAuthTab('email')">Email</button>
+      <button class="btn btn-outline" style="flex:1;" onclick="switchAuthTab('phone')">Phone (OTP)</button>
     </div>
 
-    <div id="signupForm" style="display:none;">
-      <input type="text" id="suOrgName" placeholder="Organization Name" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
-      <input type="text" id="suName" placeholder="Your Name" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
-      <input type="email" id="suEmail" placeholder="Email" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
-      <input type="password" id="suPass" placeholder="Password" class="pf-input" style="margin-bottom:16px; width:100%; box-sizing:border-box;">
-      <button class="btn btn-emerald" style="width:100%; margin-bottom:10px;" onclick="doSignup()">Sign Up</button>
-      <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('signupForm').style.display='none'; document.getElementById('loginForm').style.display='block';">Already have an account? Log In</button>
+    <div id="authError" style="color:red; font-size:0.85rem; margin-bottom:10px;"></div>
+
+    <!-- Email Tab -->
+    <div id="tabEmail">
+      <div id="loginForm">
+        <input type="email" id="authEmail" placeholder="Email" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+        <input type="password" id="authPass" placeholder="Password" class="pf-input" style="margin-bottom:16px; width:100%; box-sizing:border-box;">
+        <button class="btn btn-emerald" style="width:100%; margin-bottom:10px;" onclick="doLoginEmail()">Log In</button>
+        <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('loginForm').style.display='none'; document.getElementById('signupForm').style.display='block';">Need an account? Sign Up</button>
+      </div>
+      <div id="signupForm" style="display:none;">
+        <input type="email" id="suEmail" placeholder="Email" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+        <input type="password" id="suPass" placeholder="Password" class="pf-input" style="margin-bottom:16px; width:100%; box-sizing:border-box;">
+        <button class="btn btn-emerald" style="width:100%; margin-bottom:10px;" onclick="doSignupEmail()">Sign Up</button>
+        <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('signupForm').style.display='none'; document.getElementById('loginForm').style.display='block';">Already have an account? Log In</button>
+      </div>
+    </div>
+
+    <!-- Phone Tab -->
+    <div id="tabPhone" style="display:none;">
+      <div id="phoneInputStep">
+        <input type="tel" id="authPhone" placeholder="+919876543210" class="pf-input" style="margin-bottom:10px; width:100%; box-sizing:border-box;">
+        <div id="recaptcha-container" style="margin-bottom:10px;"></div>
+        <button class="btn btn-emerald" style="width:100%;" onclick="sendOTP()">Send OTP</button>
+      </div>
+      <div id="phoneVerifyStep" style="display:none;">
+        <input type="text" id="authOtp" placeholder="Enter 6-digit OTP" class="pf-input" style="margin-bottom:16px; width:100%; box-sizing:border-box;">
+        <button class="btn btn-emerald" style="width:100%;" onclick="verifyOTP()">Verify OTP</button>
+      </div>
     </div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-auth-compat.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-firestore-compat.min.js"></script>
 <script src="./firebase-config.js?v=5"></script>
 <script>
@@ -425,46 +444,100 @@
 </script>
 
 <script>
-let apiToken = localStorage.getItem('apiToken') || 'dummy-token-for-testing';
-// Set this to your Render URL (e.g., 'https://event-backend-1234.onrender.com') when deployed
-const API_BASE_URL = ''; 
+let currentUser = null;
 
-function checkAuth() {
-  // --- TEMPORARY BYPASS FOR TESTING ---
-  document.getElementById('authModal').style.display = 'none';
-  // ------------------------------------
+function initAuth() {
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('authModal').style.display = 'none';
+      
+      let header = document.querySelector('.pane.left section div');
+      if (header && !document.getElementById('logoutBtn')) {
+         const btn = document.createElement('button');
+         btn.id = 'logoutBtn';
+         btn.className = 'btn btn-ghost';
+         btn.style.cssText = 'margin-left: 10px; font-size:0.8rem; padding:4px 8px;';
+         btn.textContent = 'Log Out';
+         btn.onclick = () => firebase.auth().signOut();
+         header.appendChild(btn);
+      }
+    } else {
+      currentUser = null;
+      document.getElementById('authModal').style.display = 'flex';
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) logoutBtn.remove();
+    }
+  });
 }
-async function doLogin() {
+
+function switchAuthTab(tab) {
+  document.getElementById('tabEmail').style.display = tab === 'email' ? 'block' : 'none';
+  document.getElementById('tabPhone').style.display = tab === 'phone' ? 'block' : 'none';
+  document.getElementById('authError').textContent = '';
+  
+  if (tab === 'phone' && !window.recaptchaVerifier) {
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      'size': 'normal'
+    });
+    window.recaptchaVerifier.render();
+  }
+}
+
+async function doLoginEmail() {
   const email = document.getElementById('authEmail').value;
-  const password = document.getElementById('authPass').value;
+  const pass = document.getElementById('authPass').value;
+  if (!email || !pass) return;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email, password})
-    });
-    const data = await res.json();
-    if(res.ok) {
-      apiToken = data.token; localStorage.setItem('apiToken', apiToken); checkAuth(); showToast('Logged in!');
-    } else { document.getElementById('authError').textContent = data.error || 'Login failed'; }
-  } catch(e) { document.getElementById('authError').textContent = 'Network error'; }
+    document.getElementById('authError').textContent = 'Logging in...';
+    await firebase.auth().signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    document.getElementById('authError').textContent = e.message;
+  }
 }
-async function doSignup() {
-  const orgName = document.getElementById('suOrgName').value;
-  const name = document.getElementById('suName').value;
+
+async function doSignupEmail() {
   const email = document.getElementById('suEmail').value;
-  const password = document.getElementById('suPass').value;
+  const pass = document.getElementById('suPass').value;
+  if (!email || !pass) return;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({orgName, name, email, password})
-    });
-    const data = await res.json();
-    if(res.ok) {
-      apiToken = data.token; localStorage.setItem('apiToken', apiToken); checkAuth(); showToast('Signed up!');
-    } else { document.getElementById('authError').textContent = data.error || 'Signup failed'; }
-  } catch(e) { document.getElementById('authError').textContent = 'Network error'; }
+    document.getElementById('authError').textContent = 'Creating account...';
+    await firebase.auth().createUserWithEmailAndPassword(email, pass);
+  } catch (e) {
+    document.getElementById('authError').textContent = e.message;
+  }
 }
-checkAuth();
+
+let confirmationResult = null;
+async function sendOTP() {
+  const phone = document.getElementById('authPhone').value.trim();
+  if (!phone.startsWith('+')) {
+    document.getElementById('authError').textContent = 'Phone must start with country code (e.g. +91)';
+    return;
+  }
+  try {
+    document.getElementById('authError').textContent = 'Sending OTP...';
+    confirmationResult = await firebase.auth().signInWithPhoneNumber(phone, window.recaptchaVerifier);
+    document.getElementById('authError').textContent = 'OTP sent!';
+    document.getElementById('phoneInputStep').style.display = 'none';
+    document.getElementById('phoneVerifyStep').style.display = 'block';
+  } catch (e) {
+    document.getElementById('authError').textContent = e.message;
+  }
+}
+
+async function verifyOTP() {
+  const code = document.getElementById('authOtp').value.trim();
+  if (!code) return;
+  try {
+    document.getElementById('authError').textContent = 'Verifying...';
+    await confirmationResult.confirm(code);
+  } catch (e) {
+    document.getElementById('authError').textContent = e.message;
+  }
+}
+
+initAuth();
 let workspaces = JSON.parse(localStorage.getItem('form_workspaces')) || [{id: 'default', name: 'My Workspace'}];
 let activeWsId = localStorage.getItem('active_workspace_id') || 'default';
 let STORE_KEY = activeWsId === 'default' ? 'eventFormBuilderStore' : ('eventFormBuilderStore_' + activeWsId);
