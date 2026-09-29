@@ -180,8 +180,25 @@
         const fields = eventData.fields || [];
         fields.forEach(f => {
             if (f.hidden) return;
-            fieldsHtml += `<div class="pf-field"><label>${escapeHtml(f.name)}</label>`;
-            const idAttr = `name="${escapeHtml(f.name)}" required`;
+
+            // Determine if this field depends on another field
+            let depOnAttr = '';
+            let depValAttr = '';
+            let initialDisplay = '';
+            if (f.dependsOn && f.dependsValue) {
+                const parentF = fields.find(tf => tf.name === f.dependsOn);
+                if (parentF) {
+                    depOnAttr = f.dependsOn;
+                    depValAttr = f.dependsValue;
+                    initialDisplay = 'display:none;';
+                }
+            }
+
+            const isConditional = initialDisplay !== '';
+            const reqAttr = isConditional ? '' : 'required';
+            const idAttr = `name="${escapeHtml(f.name)}" ${reqAttr}`;
+
+            fieldsHtml += `<div class="pf-field" data-dep-on="${escapeHtml(depOnAttr)}" data-dep-val="${escapeHtml(depValAttr)}" style="${initialDisplay}"><label>${escapeHtml(f.name)}</label>`;
             
             if (f.type === 'select' || f.type === 'gender') {
                 let opts = f.type === 'gender' ? ['Male', 'Female', 'Other', 'Prefer not to say'] : (f.options || []);
@@ -197,13 +214,12 @@
                 fieldsHtml += `<input class="pf-input" type="text" ${idAttr}>`;
             } else if (f.type === 'fullname-split') {
                 fieldsHtml += `<div style="display:flex; gap:8px;">
-                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Name" placeholder="Name" style="flex:1;" required>
+                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Name" placeholder="Name" style="flex:1;" ${reqAttr}>
                     <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Middle" placeholder="Middle Name" style="flex:1;">
-                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Surname" placeholder="Surname" style="flex:1;" required>
+                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Surname" placeholder="Surname" style="flex:1;" ${reqAttr}>
                 </div>`;
             } else if (f.type === 'tel-country') {
-                // Render visible input. intlTelInput will convert it. 
-                fieldsHtml += `<input class="pf-input tel-country-input" type="tel" id="tel_${escapeHtml(f.name)}" data-name="${escapeHtml(f.name)}" required>`;
+                fieldsHtml += `<input class="pf-input tel-country-input" type="tel" id="tel_${escapeHtml(f.name)}" data-name="${escapeHtml(f.name)}" ${reqAttr}>`;
             } else {
                 fieldsHtml += `<input class="pf-input" type="${f.type}" ${idAttr}>`;
             }
@@ -211,9 +227,39 @@
         });
         document.getElementById('fieldsRender').innerHTML = fieldsHtml;
 
+        // Wire up conditional field visibility
+        const regForm = document.getElementById('registrationForm');
+        function checkConditions() {
+            regForm.querySelectorAll('.pf-field[data-dep-on]').forEach(function(wrap) {
+                const depOn = wrap.getAttribute('data-dep-on');
+                const depVal = (wrap.getAttribute('data-dep-val') || '').toLowerCase();
+                if (!depOn) return;
+
+                let currentVal = '';
+                const parentEl = regForm.querySelector('[name="' + depOn + '"]');
+                if (parentEl) {
+                    currentVal = (parentEl.value || '').toLowerCase();
+                }
+
+                const shouldShow = currentVal === depVal;
+                wrap.style.display = shouldShow ? 'block' : 'none';
+                wrap.querySelectorAll('.pf-input').forEach(function(inp) {
+                    if (shouldShow) {
+                        if (!inp.name.includes('- Middle')) inp.setAttribute('required', 'required');
+                    } else {
+                        inp.removeAttribute('required');
+                        if (inp.tagName === 'SELECT') inp.selectedIndex = 0;
+                        else if (inp.type !== 'checkbox' && inp.type !== 'radio') inp.value = '';
+                    }
+                });
+            });
+        }
+        regForm.addEventListener('change', checkConditions);
+        regForm.addEventListener('input', checkConditions);
+
         // Initialize intl-tel-input for any tel-country fields
-        setTimeout(() => {
-            document.querySelectorAll('.tel-country-input').forEach(input => {
+        setTimeout(function() {
+            document.querySelectorAll('.tel-country-input').forEach(function(input) {
                 const actualName = input.getAttribute('data-name');
                 const iti = window.intlTelInput(input, {
                     utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/18.2.1/js/utils.js",
@@ -221,8 +267,7 @@
                     separateDialCode: true,
                     initialCountry: "in"
                 });
-                input.iti = iti; // Save instance for manual retrieval later
-                // rename the visible input so it doesn't clash with the hidden input in FormData
+                input.iti = iti;
                 input.name = actualName + '_raw';
             });
         }, 10);
