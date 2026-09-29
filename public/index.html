@@ -1027,14 +1027,43 @@ function fieldEditHtml(f, i){
   const typeOptions = optsList.map(t =>
     `<option value="${t.v}" ${f.type===t.v?'selected':''}>${t.l}</option>`
   ).join('');
+
+  const parentOptions = fields.map((tf, ti) => {
+      if (ti === i) return '';
+      return `<option value="${escapeHtml(tf.id)}" ${f.dependsOn === tf.id ? 'selected' : ''}>${escapeHtml(tf.name)}</option>`;
+  }).join('');
+
   return `<div class="field-edit">
     <div class="field-edit-row">
       <input type="text" id="editName-${i}" value="${escapeHtml(f.name)}">
       <select id="editType-${i}" ${f.locked ? 'disabled' : ''}>${typeOptions}</select>
     </div>
-    <div id="editOptionsWrap-${i}" style="display:${f.type==='select' ? 'block':'none'};">
+    <div id="editOptionsWrap-${i}" style="display:${f.type==='select' ? 'block':'none'}; margin-bottom: 10px;">
       <textarea id="editOptions-${i}" placeholder="One option per line">${(f.options||[]).join('\n')}</textarea>
     </div>
+    
+    <div style="background:#f1f5f9; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.85rem; text-align: left;">
+      <label style="display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer;">
+         <input type="checkbox" id="editCondToggle-${i}" ${f.dependsOn ? 'checked' : ''} onchange="document.getElementById('editCondWrap-${i}').style.display = this.checked ? 'block' : 'none';">
+         Show this field conditionally
+      </label>
+      <div id="editCondWrap-${i}" style="display:${f.dependsOn ? 'block' : 'none'}; margin-top: 10px;">
+         <div style="display:flex; gap:10px; align-items:center;">
+            <div style="flex:1;">
+                <label style="display:block; margin-bottom:4px; font-weight:500;">If field:</label>
+                <select id="editCondField-${i}" class="pf-input" style="width:100%; font-size:0.8rem; padding:4px 8px;">
+                   <option value="">-- Select Field --</option>
+                   ${parentOptions}
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label style="display:block; margin-bottom:4px; font-weight:500;">Equals value:</label>
+                <input type="text" id="editCondValue-${i}" value="${escapeHtml(f.dependsValue || '')}" placeholder="e.g. Staff" class="pf-input" style="width:100%; font-size:0.8rem; padding:4px 8px;">
+            </div>
+         </div>
+      </div>
+    </div>
+
     <div class="field-edit-actions">
       <button class="btn btn-emerald" data-save="${i}">Save</button>
       <button class="btn btn-ghost" data-cancel="${i}">Cancel</button>
@@ -1063,6 +1092,20 @@ function saveFieldEdit(i){
   } else {
     delete f.options;
   }
+
+  // Handle conditional logic
+  const isCond = document.getElementById(`editCondToggle-${i}`).checked;
+  if (isCond) {
+      const pField = document.getElementById(`editCondField-${i}`).value;
+      const pVal = document.getElementById(`editCondValue-${i}`).value.trim();
+      if (!pField || !pVal) { showToast('Please complete conditional settings or uncheck the box.'); return; }
+      f.dependsOn = pField;
+      f.dependsValue = pVal;
+  } else {
+      delete f.dependsOn;
+      delete f.dependsValue;
+  }
+
   editingIndex = null;
   renderFields();
   buildPreview();

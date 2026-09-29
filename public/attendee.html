@@ -178,38 +178,98 @@
         // Fields
         let fieldsHtml = '';
         const fields = eventData.fields || [];
-        fields.forEach(f => {
+                fields.forEach(f => {
             if (f.hidden) return;
-            fieldsHtml += `<div class="pf-field"><label>${escapeHtml(f.name)}</label>`;
-            const idAttr = `name="${escapeHtml(f.name)}" required`;
+            
+            let condAttrs = '';
+            let wrapperStyle = '';
+            if (f.dependsOn && f.dependsValue) {
+                const parentF = fields.find(tf => tf.id === f.dependsOn);
+                if (parentF) {
+                    condAttrs = data-depends-on="${escapeHtml(parentF.name)}" data-depends-value="${escapeHtml(f.dependsValue)}";
+                    wrapperStyle = 'style="display:none;"';
+                }
+            }
+            
+            fieldsHtml += <div class="pf-field" ${condAttrs} ${wrapperStyle}><label>${escapeHtml(f.name)}</label>;
+            const reqAttr = wrapperStyle ? '' : 'required';
+            const idAttr = 
+ame="${escapeHtml(f.name)}" ${reqAttr};
             
             if (f.type === 'select' || f.type === 'gender') {
                 let opts = f.type === 'gender' ? ['Male', 'Female', 'Other', 'Prefer not to say'] : (f.options || []);
-                const optsHtml = opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
-                fieldsHtml += `<select class="pf-input" ${idAttr}><option value="">Chooseâ€¦</option>${optsHtml}</select>`;
+                const optsHtml = opts.map(o => <option value="${escapeHtml(o)}">${escapeHtml(o)}</option>).join('');
+                fieldsHtml += <select class="pf-input" ${idAttr}><option value="">Choose…</option>${optsHtml}</select>;
             } else if (f.type === 'address') {
-                fieldsHtml += `<textarea class="pf-input" rows="3" ${idAttr}></textarea>`;
+                fieldsHtml += <textarea class="pf-input" rows="3" ${idAttr}></textarea>;
             } else if (f.type === 'percentage') {
-                fieldsHtml += `<input class="pf-input" type="number" step="0.01" ${idAttr}>`;
+                fieldsHtml += <input class="pf-input" type="number" step="0.01" ${idAttr}>;
             } else if (f.type === 'file' || f.type === 'image') {
-                fieldsHtml += `<input class="pf-input" type="file" ${f.type === 'image' ? 'accept="image/*"' : ''} ${idAttr}>`;
+                fieldsHtml += <input class="pf-input" type="file" ${f.type === 'image' ? 'accept="image/*"' : ''} ${idAttr}>;
             } else if (f.type === 'fullname') {
-                fieldsHtml += `<input class="pf-input" type="text" ${idAttr}>`;
+                fieldsHtml += <input class="pf-input" type="text" ${idAttr}>;
             } else if (f.type === 'fullname-split') {
-                fieldsHtml += `<div style="display:flex; gap:8px;">
-                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Name" placeholder="Name" style="flex:1;" required>
+                fieldsHtml += <div style="display:flex; gap:8px;">
+                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Name" placeholder="Name" style="flex:1;" ${reqAttr}>
                     <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Middle" placeholder="Middle Name" style="flex:1;">
-                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Surname" placeholder="Surname" style="flex:1;" required>
-                </div>`;
+                    <input class="pf-input" type="text" name="${escapeHtml(f.name)} - Surname" placeholder="Surname" style="flex:1;" ${reqAttr}>
+                </div>;
             } else if (f.type === 'tel-country') {
-                // Render visible input. intlTelInput will convert it. 
-                fieldsHtml += `<input class="pf-input tel-country-input" type="tel" id="tel_${escapeHtml(f.name)}" data-name="${escapeHtml(f.name)}" required>`;
+                fieldsHtml += <input class="pf-input tel-country-input" type="tel" id="tel_${escapeHtml(f.name)}" data-name="${escapeHtml(f.name)}" ${reqAttr}>;
             } else {
-                fieldsHtml += `<input class="pf-input" type="${f.type}" ${idAttr}>`;
+                fieldsHtml += <input class="pf-input" type="${f.type}" ${idAttr}>;
             }
-            fieldsHtml += `</div>`;
+            fieldsHtml += </div>;
         });
         document.getElementById('fieldsRender').innerHTML = fieldsHtml;
+
+        const form = document.getElementById('registrationForm');
+        form.addEventListener('change', checkConditions);
+        form.addEventListener('input', checkConditions);
+        
+        function checkConditions() {
+            const condFields = form.querySelectorAll('.pf-field[data-depends-on]');
+            
+            condFields.forEach(fieldDiv => {
+                const depOnName = fieldDiv.getAttribute('data-depends-on');
+                const depVal = fieldDiv.getAttribute('data-depends-value').toLowerCase();
+                
+                let currentVal = '';
+                const parentInputs = form.querySelectorAll([name="${depOnName}"]);
+                if (parentInputs.length > 0) {
+                    if (parentInputs[0].type === 'radio') {
+                        const checked = Array.from(parentInputs).find(r => r.checked);
+                        if(checked) currentVal = checked.value;
+                    } else if (parentInputs[0].type === 'checkbox') {
+                        currentVal = parentInputs[0].checked ? parentInputs[0].value || 'true' : '';
+                    } else {
+                        currentVal = parentInputs[0].value;
+                    }
+                } else {
+                    const rawInput = form.querySelector([name="${depOnName}_raw"]);
+                    if (rawInput) currentVal = rawInput.value;
+                }
+                
+                currentVal = (currentVal || '').toLowerCase();
+                const shouldShow = currentVal === depVal;
+                
+                if (shouldShow) {
+                    fieldDiv.style.display = 'block';
+                    const inputs = fieldDiv.querySelectorAll('.pf-input');
+                    inputs.forEach(inp => {
+                        if (!inp.name.includes('- Middle')) inp.setAttribute('required', 'true');
+                    });
+                } else {
+                    fieldDiv.style.display = 'none';
+                    const inputs = fieldDiv.querySelectorAll('.pf-input');
+                    inputs.forEach(inp => {
+                        inp.removeAttribute('required');
+                        if(inp.type === 'checkbox' || inp.type === 'radio') inp.checked = false;
+                        else inp.value = '';
+                    });
+                }
+            });
+        }
 
         // Initialize intl-tel-input for any tel-country fields
         setTimeout(() => {
@@ -226,6 +286,7 @@
                 input.name = actualName + '_raw';
             });
         }, 10);
+        setTimeout(checkConditions, 100);
     }
 
     async function submitForm(e) {
@@ -412,3 +473,7 @@
 
 </body>
 </html>
+
+
+
+
