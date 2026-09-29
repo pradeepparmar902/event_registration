@@ -1030,7 +1030,7 @@ function fieldEditHtml(f, i){
 
   const parentOptions = fields.map((tf, ti) => {
       if (ti === i) return '';
-      return `<option value="${escapeHtml(tf.id)}" ${f.dependsOn === tf.id ? 'selected' : ''}>${escapeHtml(tf.name)}</option>`;
+      return `<option value="${escapeHtml(tf.name)}" ${f.dependsOn === tf.name ? 'selected' : ''}>${escapeHtml(tf.name)}</option>`;
   }).join('');
 
   return `<div class="field-edit">
@@ -1268,6 +1268,7 @@ function buildPreview(){
 }
 
 function escapeHtml(s){
+    if(s === undefined || s === null) return '';
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
@@ -1378,3 +1379,4 @@ updateVariablePanel();
 </script>
 </body>
 </html>
+

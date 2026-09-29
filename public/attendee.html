@@ -184,7 +184,7 @@
             let condAttrs = '';
             let wrapperStyle = '';
             if (f.dependsOn && f.dependsValue) {
-                const parentF = fields.find(tf => tf.id === f.dependsOn);
+                const parentF = fields.find(tf => tf.name === f.dependsOn);
                 if (parentF) {
                     condAttrs = data-depends-on="${escapeHtml(parentF.name)}" data-depends-value="${escapeHtml(f.dependsValue)}";
                     wrapperStyle = 'style="display:none;"';
@@ -473,6 +473,8 @@ ame="${escapeHtml(f.name)}" ${reqAttr};
 
 </body>
 </html>
+
+
 
 
 
