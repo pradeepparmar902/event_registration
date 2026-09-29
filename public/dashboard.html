@@ -124,6 +124,27 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { display: inline-block; animation: spin 0.8s linear infinite; }
 
+        /* ── Status column ── */
+        .status-wrap { display: flex; align-items: center; gap: 6px; }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        select.status-sel {
+            border: none;
+            background: transparent;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 20px;
+            outline: none;
+        }
+        select.status-sel.st-Pending    { background: #f1f5f9; color: #64748b; }
+        select.status-sel.st-Approved   { background: #dcfce7; color: #16a34a; }
+        select.status-sel.st-Disapproved{ background: #fee2e2; color: #dc2626; }
+        select.status-sel.st-NeedInfo   { background: #fef9c3; color: #ca8a04; }
+        td.status-cell { padding: 8px 12px; }
+
         /* ── Column Settings Modal ── */
         .modal-backdrop {
             display: none;
@@ -269,9 +290,11 @@
     const STORAGE_KEY = 'dash_cols_' + slug;
 
     let entries = [];
-    let allKeys = [];          // full ordered list (after load)
-    let colOrder = [];         // current user-defined order
-    let colVisible = {};       // key -> bool
+    let entryDocIds = [];      // parallel: Firestore doc ID per entry
+    let entryStatuses = [];    // parallel: status per entry
+    let allKeys = [];
+    let colOrder = [];
+    let colVisible = {};
     let activeFilters = {};
 
     if (!slug) {
@@ -295,6 +318,8 @@
 
             const snapshot = await db.collection('registrations').where('event_slug', '==', slug).get();
             entries = [];
+            entryDocIds = [];
+            entryStatuses = [];
             const keySet = new Set(['Registration Number', 'Timestamp']);
 
             snapshot.forEach(doc => {
@@ -306,9 +331,16 @@
                 };
                 Object.keys(entry).forEach(k => { if (!k.endsWith('_raw')) keySet.add(k); });
                 entries.push(entry);
+                entryDocIds.push(doc.id);
+                entryStatuses.push(data.status || 'Pending');
             });
 
-            entries.sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
+            // Sort newest first keeping parallel arrays in sync
+            const paired = entries.map((e, i) => ({ e, id: entryDocIds[i], st: entryStatuses[i] }));
+            paired.sort((x, y) => new Date(y.e.Timestamp) - new Date(x.e.Timestamp));
+            entries       = paired.map(p => p.e);
+            entryDocIds   = paired.map(p => p.id);
+            entryStatuses = paired.map(p => p.st);
 
             // Merge saved col prefs with discovered keys
             const saved = loadColPrefs();
@@ -335,6 +367,25 @@
 
     function refreshData() { loadData(); }
 
+    /* ── Save status to Firestore ── */
+    async function changeStatus(idx, sel) {
+        const newStatus = sel.value;
+        const docId = entryDocIds[idx];
+        if (!docId) return;
+        // Update badge color immediately (optimistic)
+        entryStatuses[idx] = newStatus;
+        const statusKey = newStatus.replace(' ', '');
+        sel.className = 'status-sel st-' + statusKey;
+        const dot = sel.closest('.status-wrap').querySelector('.status-dot');
+        const colors = { Pending:'#94a3b8', Approved:'#16a34a', Disapproved:'#dc2626', 'Need Info':'#ca8a04' };
+        if (dot) dot.style.background = colors[newStatus] || '#94a3b8';
+        try {
+            await db.collection('registrations').doc(docId).update({ status: newStatus });
+        } catch(e) {
+            alert('Failed to save status: ' + e.message);
+        }
+    }
+
     /* ── Render Table ── */
     function renderTable() {
         if (entries.length === 0) {
@@ -353,6 +404,17 @@
         });
 
         let html = '<table id="regTable"><thead><tr>';
+        // Fixed Status column (not user-orderable)
+        const statusOpts = ['Pending','Approved','Disapproved','Need Info'];
+        const curStatusFilter = activeFilters['__status__'] || '';
+        const statusOptsHtml = statusOpts.map(v => `<option value="${v}" ${curStatusFilter === v ? 'selected' : ''}>${v}</option>`).join('');
+        html += `<th style="min-width:140px;">
+            <span class="th-label">Status</span>
+            <select class="col-filter${curStatusFilter ? ' active' : ''}" data-col="__status__" onchange="onFilterChange(this)">
+                <option value="">All</option>
+                ${statusOptsHtml}
+            </select>
+        </th>`;
         visibleKeys.forEach((k, ci) => {
             const opts = Array.from(uniqueVals[k]).sort();
             const cur = activeFilters[k] || '';
@@ -373,9 +435,24 @@
         });
         html += '</tr></thead><tbody>';
 
+        const statusDotColor = { Pending:'#94a3b8', Approved:'#16a34a', Disapproved:'#dc2626', 'Need Info':'#ca8a04' };
         entries.forEach((entry, idx) => {
-            const visible = isRowVisible(entry);
+            const status = entryStatuses[idx] || 'Pending';
+            const statusKey = status.replace(' ', '');
+            const dot = statusDotColor[status] || '#94a3b8';
+            // Check status filter too
+            const statusMatch = !activeFilters['__status__'] || status === activeFilters['__status__'];
+            const visible = isRowVisible(entry) && statusMatch;
             html += `<tr class="${visible ? '' : 'hidden-row'}" data-idx="${idx}">`;
+            // Status cell
+            html += `<td class="status-cell">
+                <div class="status-wrap">
+                    <span class="status-dot" style="background:${dot}"></span>
+                    <select class="status-sel st-${statusKey}" onchange="changeStatus(${idx}, this)">
+                        ${statusOpts.map(s => `<option value="${s}" ${status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                    </select>
+                </div>
+            </td>`;
             visibleKeys.forEach(k => {
                 html += `<td>${escH(String(entry[k] || ''))}</td>`;
             });
@@ -431,6 +508,7 @@
     function isRowVisible(entry) {
         for (const col in activeFilters) {
             if (!activeFilters[col]) continue;
+            if (col === '__status__') continue; // handled separately
             if (String(entry[col] || '') !== activeFilters[col]) return false;
         }
         return true;
@@ -550,11 +628,19 @@
     function exportCSV() {
         if (entries.length === 0) return;
         const visibleKeys = colOrder.filter(k => colVisible[k]);
-        const visibleEntries = entries.filter(e => isRowVisible(e));
+        const statusF = activeFilters['__status__'] || '';
+        const visibleEntries = entries.filter((e, i) => {
+            const statusMatch = !statusF || (entryStatuses[i] || 'Pending') === statusF;
+            return isRowVisible(e) && statusMatch;
+        });
 
-        let csv = visibleKeys.map(k => `"${String(k).replace(/"/g,'""')}"`).join(',') + '\n';
-        visibleEntries.forEach(entry => {
-            csv += visibleKeys.map(k => `"${String(entry[k] || '').replace(/"/g,'""')}"`).join(',') + '\n';
+        const allCols = ['Status', ...visibleKeys];
+        let csv = allCols.map(k => `"${String(k).replace(/"/g,'""')}"`).join(',') + '\n';
+        visibleEntries.forEach((entry, i) => {
+            const origIdx = entries.indexOf(entry);
+            const status = entryStatuses[origIdx] || 'Pending';
+            const row = [status, ...visibleKeys.map(k => String(entry[k] || ''))];
+            csv += row.map(v => `"${v.replace(/"/g,'""')}"`).join(',') + '\n';
         });
 
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
