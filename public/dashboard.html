@@ -623,12 +623,34 @@
         const docId = entryDocIds[editingIdx];
         if (!docId) return;
         const updatedData = {};
+        
         // Collect from all input, select, textarea fields (but not read-only ones)
         document.querySelectorAll('#editModalBody [data-key]').forEach(el => {
             if (el.readOnly) return;
             const key = el.getAttribute('data-key');
             updatedData[key] = (el.tagName === 'SELECT' ? el.value : el.value.trim());
         });
+
+        // Process conditional field merges (like attendee.html does)
+        document.querySelectorAll('#editModalBody .edit-field-row[data-dep-on]').forEach(row => {
+            const depOn = row.getAttribute('data-dep-on');
+            const depVal = (row.getAttribute('data-dep-val') || '').toLowerCase();
+            const childInput = row.querySelector('[data-key]');
+            if (!childInput) return;
+            
+            const childKey = childInput.getAttribute('data-key');
+            const parentVal = (updatedData[depOn] || '').toLowerCase();
+            
+            if (parentVal === depVal) {
+                // Condition met: overwrite parent value with child's typed value, remove child key
+                updatedData[depOn] = updatedData[childKey];
+                delete updatedData[childKey];
+            } else {
+                // Condition not met: delete child key just in case it had old data
+                delete updatedData[childKey];
+            }
+        });
+
         try {
             await db.collection('registrations').doc(docId).update({ data: updatedData });
             Object.assign(entries[editingIdx], updatedData);
