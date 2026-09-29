@@ -374,9 +374,10 @@
     const STORAGE_KEY = 'dash_cols_' + slug;
 
     let entries = [];
-    let entryDocIds = [];      // parallel: Firestore doc ID per entry
-    let entryStatuses = [];    // parallel: status per entry
-    let entryRemarks = [];     // parallel: remarks per entry
+    let entryDocIds = [];
+    let entryStatuses = [];
+    let entryRemarks = [];
+    let eventFields = [];      // field definitions from the event doc (name, type, options)
     let allKeys = [];
     let colOrder = [];
     let colVisible = {};
@@ -399,6 +400,8 @@
                 const ev = eventDoc.data();
                 document.getElementById('eventName').textContent = ev.formTitle || ev.name || 'Untitled Event';
                 document.getElementById('eventMeta').textContent = (ev.eventDate || '') + (ev.venue ? ' - ' + ev.venue : '');
+                // Save field definitions for the Edit modal
+                eventFields = ev.fields || [];
             }
 
             const snapshot = await db.collection('registrations').where('event_slug', '==', slug).get();
@@ -499,18 +502,52 @@
         editingIdx = idx;
         const entry = entries[idx];
         const body = document.getElementById('editModalBody');
+
+        // Build a lookup map: field name -> field definition
+        const fieldDefMap = {};
+        eventFields.forEach(f => { fieldDefMap[f.name] = f; });
+
         let html = '';
         allKeys.forEach(k => {
-            const val = escH(String(entry[k] || ''));
-            html += `<div class="edit-field-row">
-                <label>${escH(k)}</label>
-                <input type="text" data-key="${escH(k)}" value="${val}">
-            </div>`;
+            const val = String(entry[k] || '');
+            const def = fieldDefMap[k];
+            const type = def ? def.type : 'text';
+
+            html += `<div class="edit-field-row"><label>${escH(k)}</label>`;
+
+            if (type === 'gender') {
+                const genderOpts = ['Male', 'Female', 'Other', 'Prefer not to say'];
+                html += `<select data-key="${escH(k)}">`;
+                genderOpts.forEach(o => {
+                    html += `<option value="${escH(o)}" ${val === o ? 'selected' : ''}>${escH(o)}</option>`;
+                });
+                html += `</select>`;
+
+            } else if (type === 'select' && def && def.options && def.options.length) {
+                html += `<select data-key="${escH(k)}">`;
+                html += `<option value="">— select —</option>`;
+                def.options.forEach(o => {
+                    html += `<option value="${escH(o)}" ${val === o ? 'selected' : ''}>${escH(o)}</option>`;
+                });
+                html += `</select>`;
+
+            } else if (type === 'address') {
+                html += `<textarea data-key="${escH(k)}" rows="3">${escH(val)}</textarea>`;
+
+            } else if (k === 'Timestamp' || k === 'Registration Number') {
+                // Read-only fields
+                html += `<input type="text" data-key="${escH(k)}" value="${escH(val)}" readonly style="background:#f8fafc; color:var(--muted); cursor:not-allowed;">`;
+
+            } else {
+                html += `<input type="text" data-key="${escH(k)}" value="${escH(val)}">`;
+            }
+
+            html += `</div>`;
         });
+
         body.innerHTML = html;
         document.getElementById('editModal').classList.add('open');
-        // Focus first input
-        const first = body.querySelector('input');
+        const first = body.querySelector('input:not([readonly]), select, textarea');
         if (first) setTimeout(() => first.focus(), 50);
     }
 
@@ -523,14 +560,15 @@
         if (editingIdx === null) return;
         const docId = entryDocIds[editingIdx];
         if (!docId) return;
-        const inputs = document.querySelectorAll('#editModalBody input');
         const updatedData = {};
-        inputs.forEach(inp => {
-            updatedData[inp.getAttribute('data-key')] = inp.value.trim();
+        // Collect from all input, select, textarea fields (but not read-only ones)
+        document.querySelectorAll('#editModalBody [data-key]').forEach(el => {
+            if (el.readOnly) return;
+            const key = el.getAttribute('data-key');
+            updatedData[key] = (el.tagName === 'SELECT' ? el.value : el.value.trim());
         });
         try {
             await db.collection('registrations').doc(docId).update({ data: updatedData });
-            // Update in-memory entry
             Object.assign(entries[editingIdx], updatedData);
             closeEditModal();
             renderTable();
