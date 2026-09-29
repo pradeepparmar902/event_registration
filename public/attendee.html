@@ -295,6 +295,35 @@
                 }
             });
 
+            // Merge conditional (dependent) field values into parent fields.
+            // e.g. If Location="Other" and "Other Location"="Bangalore",
+            // save Location="Bangalore" instead of "Other", and remove the child key.
+            const form2 = document.getElementById('registrationForm');
+            form2.querySelectorAll('.pf-field[data-dep-on]').forEach(function(wrap) {
+                const depOn = wrap.getAttribute('data-dep-on');
+                const depVal = (wrap.getAttribute('data-dep-val') || '').toLowerCase();
+                if (!depOn) return;
+
+                const parentEl = form2.querySelector('[name="' + depOn + '"]');
+                const parentVal = parentEl ? (parentEl.value || '').toLowerCase() : '';
+
+                // If this conditional field was actually triggered/visible
+                if (parentVal === depVal && wrap.style.display !== 'none') {
+                    // Get the child field's value
+                    const childInput = wrap.querySelector('.pf-input');
+                    if (childInput && childInput.value) {
+                        const childKey = childInput.name || childInput.getAttribute('data-name');
+                        const childVal = childInput.value;
+                        // Replace parent field value with child field value
+                        dataObj[depOn] = childVal;
+                        // Remove the raw child key so there's no duplicate column
+                        if (childKey && childKey !== depOn) {
+                            delete dataObj[childKey];
+                        }
+                    }
+                }
+            });
+
             let regNumber = null;
             if (eventData.regSettings) {
                 const prefix = eventData.regSettings.prefix || 'EVT';
