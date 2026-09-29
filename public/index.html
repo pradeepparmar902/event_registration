@@ -206,6 +206,7 @@
 </head>
 <body>
 
+<div id="appContainer" style="display:none;">
 <div class="topbar">
   <h1>Registration Form &amp; QR Builder</h1>
   <span>Set up an event's check-in form once — attendees scan, fill, and their entry is saved.</span>
@@ -402,10 +403,20 @@
         <button class="btn btn-ghost" onclick="downloadQR()">Download PNG</button>
       </div>
     </div>
-  </div>
 </div>
 
 <div class="toast" id="toast">Saved</div>
+</div> <!-- End appContainer -->
+
+<!-- Pending Modal -->
+<div id="pendingModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:20px;">
+  <div style="background:var(--card); padding:40px; border-radius:12px; max-width:500px; box-shadow:0 12px 30px rgba(0,0,0,0.1);">
+    <h2 style="margin-top:0; color:var(--emerald);">Account Pending Approval</h2>
+    <p style="color:var(--muted); font-size:1.1rem; line-height:1.5;">Your account has been created successfully, but it requires Superadmin approval before you can create forms.</p>
+    <p style="color:var(--muted); font-size:1.1rem; margin-bottom:24px;">Please contact the administrator to approve your account.</p>
+    <button class="btn btn-outline" onclick="firebase.auth().signOut(); window.location.reload();">Log Out</button>
+  </div>
+</div>
 
 <!-- Auth Modal -->
 <div id="authModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
@@ -472,6 +483,7 @@ function initAuth() {
   firebase.auth().onAuthStateChanged(async user => {
     if (user) {
       currentUser = user;
+      document.getElementById('authModal').style.display = 'none';
       
       const adminEmail = 'pradeepparmar902@yahoo.com';
       if (user.email !== adminEmail) {
@@ -485,26 +497,25 @@ function initAuth() {
                  status: 'pending',
                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
               });
-              alert('Your account is pending Superadmin approval. Please contact the administrator.');
-              firebase.auth().signOut();
+              document.getElementById('pendingModal').style.display = 'flex';
               return;
            } else {
               const userData = docSnap.data();
               if (userData.status !== 'approved') {
-                 alert('Your account is pending Superadmin approval. Please contact the administrator.');
-                 firebase.auth().signOut();
+                 document.getElementById('pendingModal').style.display = 'flex';
                  return;
               }
            }
          } catch(err) {
            console.error("Error checking user status:", err);
-           alert('Error checking account status. Check console.');
-           firebase.auth().signOut();
+           // Fallback if rules deny read but they are just pending
+           document.getElementById('pendingModal').style.display = 'flex';
            return;
          }
       }
 
-      document.getElementById('authModal').style.display = 'none';
+      document.getElementById('pendingModal').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'block';
       
       let header = document.querySelector('.pane.left section div');
       if (header && !document.getElementById('logoutBtn')) {
@@ -529,6 +540,8 @@ function initAuth() {
     } else {
       currentUser = null;
       document.getElementById('authModal').style.display = 'flex';
+      document.getElementById('pendingModal').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'none';
       const logoutBtn = document.getElementById('logoutBtn');
       if (logoutBtn) logoutBtn.remove();
       const adminLink = document.getElementById('adminLink');
