@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superadmin Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --emerald: #2563eb;
+            --emerald-hover: #1d4ed8;
+            --line: #e2e8f0;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 1.5rem; }
+        .btn { background: var(--emerald); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 0.9rem; text-decoration: none; display: inline-block; }
+        .btn:hover { background: var(--emerald-hover); }
+        .btn-outline { background: white; color: var(--emerald); border: 1px solid var(--emerald); }
+        .btn-outline:hover { background: #eff6ff; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        .card { background: var(--card); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 20px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--line); }
+        th { font-weight: 600; color: var(--muted); }
+        tr:hover { background: #f8fafc; }
+        .status-badge { display:inline-block; padding: 4px 8px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+        .status-approved { background: #dcfce7; color: #166534; }
+        .status-pending { background: #fef9c3; color: #854d0e; }
+        .status-revoked { background: #fee2e2; color: #991b1b; }
+        #authBlock { text-align: center; margin-top: 50px; }
+        #adminApp { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="authBlock">
+    <h2>Superadmin Panel</h2>
+    <p>Please log in with the superadmin email to access this portal.</p>
+    <div id="firebaseui-auth-container" style="margin-top:20px;">
+        <button class="btn" onclick="login()">Log In via Form Builder</button>
+    </div>
+</div>
+
+<div id="adminApp">
+    <div class="header">
+        <div>
+            <h1>Superadmin Panel</h1>
+            <div style="font-size: 0.85rem; color: var(--muted); margin-top: 4px;" id="adminEmailTxt"></div>
+        </div>
+        <div class="header-actions">
+            <a href="index.html" class="btn btn-outline">Back to Form Builder</a>
+            <button class="btn btn-outline" onclick="firebase.auth().signOut()">Log Out</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div id="tableContainer">Fetching users...</div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-auth-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.1/firebase-firestore-compat.min.js"></script>
+<script src="./firebase-config.js?v=5"></script>
+<script>
+    const SUPERADMIN_EMAIL = 'pradeepparmar902@yahoo.com';
+
+    try {
+        const app = firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+    } catch(err) {
+        document.body.innerHTML = `<span style="color:red">Fatal Error: ${err.message}</span>`;
+    }
+
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            if (user.email === SUPERADMIN_EMAIL) {
+                document.getElementById('authBlock').style.display = 'none';
+                document.getElementById('adminApp').style.display = 'block';
+                document.getElementById('adminEmailTxt').textContent = 'Logged in as ' + user.email;
+                loadUsers();
+            } else {
+                alert("Access Denied: You are not the Superadmin.");
+                firebase.auth().signOut();
+            }
+        } else {
+            document.getElementById('authBlock').style.display = 'block';
+            document.getElementById('adminApp').style.display = 'none';
+        }
+    });
+
+    function login() {
+        window.location.href = 'index.html'; // Go back to main site to log in via UI there
+    }
+
+    async function loadUsers() {
+        try {
+            const snapshot = await db.collection("users").get();
+            let html = '<table><thead><tr><th>Email / Phone</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
+            
+            if (snapshot.empty) {
+                html += '<tr><td colspan="4" style="text-align:center;">No users found.</td></tr>';
+            } else {
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    let statusClass = 'status-pending';
+                    if(data.status === 'approved') statusClass = 'status-approved';
+                    if(data.status === 'revoked') statusClass = 'status-revoked';
+                    
+                    html += `<tr>
+                        <td>${data.email || 'N/A'}</td>
+                        <td><span class="status-badge ${statusClass}">${data.status.toUpperCase()}</span></td>
+                        <td>${data.createdAt ? data.createdAt.toDate().toLocaleString() : 'N/A'}</td>
+                        <td>
+                            ${data.status !== 'approved' ? `<button class="btn" style="padding:4px 8px; font-size:0.8rem;" onclick="updateStatus('${doc.id}', 'approved')">Approve</button>` : ''}
+                            ${data.status === 'approved' ? `<button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="updateStatus('${doc.id}', 'revoked')">Revoke</button>` : ''}
+                        </td>
+                    </tr>`;
+                });
+            }
+            html += '</tbody></table>';
+            document.getElementById('tableContainer').innerHTML = html;
+        } catch (e) {
+            document.getElementById('tableContainer').innerHTML = `<span style="color:red">Error loading users: ${e.message}</span>`;
+        }
+    }
+
+    async function updateStatus(uid, newStatus) {
+        try {
+            await db.collection("users").doc(uid).update({ status: newStatus });
+            loadUsers();
+        } catch (e) {
+            alert('Failed to update: ' + e.message);
+        }
+    }
+</script>
+</body>
+</html>

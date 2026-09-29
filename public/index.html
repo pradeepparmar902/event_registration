@@ -469,9 +469,41 @@
 let currentUser = null;
 
 function initAuth() {
-  firebase.auth().onAuthStateChanged(user => {
+  firebase.auth().onAuthStateChanged(async user => {
     if (user) {
       currentUser = user;
+      
+      const adminEmail = 'pradeepparmar902@yahoo.com';
+      if (user.email !== adminEmail) {
+         try {
+           const userDocRef = window.db.collection('users').doc(user.uid);
+           const docSnap = await userDocRef.get();
+           if (!docSnap.exists) {
+              await userDocRef.set({
+                 uid: user.uid,
+                 email: user.email || user.phoneNumber || 'unknown',
+                 status: 'pending',
+                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
+              alert('Your account is pending Superadmin approval. Please contact the administrator.');
+              firebase.auth().signOut();
+              return;
+           } else {
+              const userData = docSnap.data();
+              if (userData.status !== 'approved') {
+                 alert('Your account is pending Superadmin approval. Please contact the administrator.');
+                 firebase.auth().signOut();
+                 return;
+              }
+           }
+         } catch(err) {
+           console.error("Error checking user status:", err);
+           alert('Error checking account status. Check console.');
+           firebase.auth().signOut();
+           return;
+         }
+      }
+
       document.getElementById('authModal').style.display = 'none';
       
       let header = document.querySelector('.pane.left section div');
@@ -484,11 +516,23 @@ function initAuth() {
          btn.onclick = () => firebase.auth().signOut();
          header.appendChild(btn);
       }
+      
+      if (user.email === adminEmail && !document.getElementById('adminLink')) {
+         const adminBtn = document.createElement('a');
+         adminBtn.id = 'adminLink';
+         adminBtn.className = 'btn btn-outline';
+         adminBtn.style.cssText = 'margin-left: 10px; font-size:0.8rem; padding:4px 8px; text-decoration:none;';
+         adminBtn.textContent = 'Superadmin Panel';
+         adminBtn.href = './admin.html';
+         header.appendChild(adminBtn);
+      }
     } else {
       currentUser = null;
       document.getElementById('authModal').style.display = 'flex';
       const logoutBtn = document.getElementById('logoutBtn');
       if (logoutBtn) logoutBtn.remove();
+      const adminLink = document.getElementById('adminLink');
+      if (adminLink) adminLink.remove();
     }
   });
 }
