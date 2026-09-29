@@ -53,12 +53,14 @@
   }
   @media (max-width: 860px){ .wrap{ grid-template-columns: 1fr; } }
 
-  .pane{ padding:24px 22px 60px; }
+  .pane{ padding:32px 24px 60px; }
   .left{ border-right:1px solid var(--line); }
   @media (max-width: 860px){ .left{ border-right:none; border-bottom:1px solid var(--line);} }
 
-  section{ margin-bottom:26px; }
-  label.field-label{ display:block; font-size:0.8rem; color:var(--muted); margin-bottom:5px; }
+  section{ margin-bottom:28px; padding-bottom:28px; border-bottom:1px solid var(--line); }
+  section:last-of-type { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  
+  label.field-label{ display:block; font-size:0.8rem; font-weight:500; color:var(--muted); margin-bottom:6px; }
   input[type=text], input[type=date], input[type=url], select{
     width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:6px;
     background:var(--card); color:var(--ink); font-family:inherit; font-size:0.92rem;
@@ -211,9 +213,13 @@
   <div class="pane left">
 
     <section>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
           <h2 class="section-title" style="margin:0;">Workspace</h2>
-          <select id="workspaceSelect" onchange="switchWorkspace()" style="border:none; border-bottom:1px dashed var(--muted); background:transparent; font-weight:600; font-size:0.9rem; text-align:right; color:var(--ink); padding-bottom:2px; cursor:pointer; max-width:180px;"></select>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <select id="workspaceSelect" onchange="switchWorkspace()" style="padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--card); font-weight:500; font-size:0.85rem; color:var(--ink); cursor:pointer; max-width:200px; outline:none; box-shadow:none;"></select>
+            <button class="btn btn-ghost" onclick="renameWorkspace()" title="Rename Workspace" style="padding:4px 6px; font-size:0.9rem; border:1px solid var(--line); color:var(--muted);"><svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg></button>
+            <button class="btn btn-outline" onclick="createNewWorkspace()" title="Create New Workspace" style="padding:4px 8px; font-size:0.9rem; display:flex; align-items:center; gap:4px;"><svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg> New</button>
+          </div>
       </div>
       <div class="event-strip" id="eventStrip"></div>
     </section>
@@ -566,61 +572,47 @@ function renderWorkspaceSelect() {
       if (ws.id === activeWsId) opt.selected = true;
       sel.appendChild(opt);
   });
-  
-  const renOpt = document.createElement('option');
-  renOpt.value = '__rename__';
-  renOpt.textContent = '✎ Rename Workspace';
-  sel.appendChild(renOpt);
-  
-  const newOpt = document.createElement('option');
-  newOpt.value = '__new__';
-  newOpt.textContent = '+ Create New Workspace';
-  sel.appendChild(newOpt);
+}
+
+function createNewWorkspace() {
+  const name = prompt("Enter new workspace name:");
+  if (name && name.trim()) {
+      const newId = 'ws_' + Date.now();
+      workspaces.push({id: newId, name: name.trim()});
+      localStorage.setItem('form_workspaces', JSON.stringify(workspaces));
+      activeWsId = newId;
+      localStorage.setItem('active_workspace_id', activeWsId);
+      STORE_KEY = 'eventFormBuilderStore_' + activeWsId;
+      store = { events:{}, order:[], activeId:null };
+      loadStore();
+      renderWorkspaceSelect();
+      renderEventList();
+      populateFormFromEvent(store.events[store.activeId]);
+      buildPreview();
+  }
+}
+
+function renameWorkspace() {
+  const currentWs = workspaces.find(w => w.id === activeWsId);
+  const name = prompt("Rename workspace:", currentWs.name);
+  if (name && name.trim()) {
+      currentWs.name = name.trim();
+      localStorage.setItem('form_workspaces', JSON.stringify(workspaces));
+      renderWorkspaceSelect();
+  }
 }
 
 function switchWorkspace() {
   const sel = document.getElementById('workspaceSelect');
   const val = sel.value;
-  
-  if (val === '__new__') {
-      const name = prompt("Enter new workspace name:");
-      if (name && name.trim()) {
-          const newId = 'ws_' + Date.now();
-          workspaces.push({id: newId, name: name.trim()});
-          localStorage.setItem('form_workspaces', JSON.stringify(workspaces));
-          activeWsId = newId;
-          localStorage.setItem('active_workspace_id', activeWsId);
-          STORE_KEY = 'eventFormBuilderStore_' + activeWsId;
-          store = { events:{}, order:[], activeId:null };
-          loadStore();
-          renderWorkspaceSelect();
-          renderEventList();
-          populateFormFromEvent(store.events[store.activeId]);
-          buildPreview();
-      } else {
-          sel.value = activeWsId;
-      }
-  } else if (val === '__rename__') {
-      const currentWs = workspaces.find(w => w.id === activeWsId);
-      const name = prompt("Rename workspace:", currentWs.name);
-      if (name && name.trim()) {
-          currentWs.name = name.trim();
-          localStorage.setItem('form_workspaces', JSON.stringify(workspaces));
-          renderWorkspaceSelect();
-          sel.value = activeWsId;
-      } else {
-          sel.value = activeWsId;
-      }
-  } else {
-      activeWsId = val;
-      localStorage.setItem('active_workspace_id', activeWsId);
-      STORE_KEY = activeWsId === 'default' ? 'eventFormBuilderStore' : ('eventFormBuilderStore_' + activeWsId);
-      store = { events:{}, order:[], activeId:null };
-      loadStore();
-      renderEventList();
-      populateFormFromEvent(store.events[store.activeId]);
-      buildPreview();
-  }
+  activeWsId = val;
+  localStorage.setItem('active_workspace_id', activeWsId);
+  STORE_KEY = activeWsId === 'default' ? 'eventFormBuilderStore' : ('eventFormBuilderStore_' + activeWsId);
+  store = { events:{}, order:[], activeId:null };
+  loadStore();
+  renderEventList();
+  populateFormFromEvent(store.events[store.activeId]);
+  buildPreview();
 }
 
 function defaultFields(){
