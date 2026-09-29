@@ -127,6 +127,7 @@
                     const ev = store.events[evId];
                     eventData = {
                         name: ev.name,
+                        formTitle: ev.formTitle,
                         event_date: ev.date,
                         venue: ev.venue,
                         whatsapp_group_link: ev.wa,
@@ -164,9 +165,15 @@
             document.getElementById('headerRender').innerHTML = html;
         }
         
-        document.getElementById('eventName').textContent = eventData.name;
-        const meta = [eventData.event_date, eventData.venue].filter(Boolean).join(' · ');
-        document.getElementById('eventMeta').textContent = meta;
+        document.getElementById('eventName').textContent = eventData.formTitle || eventData.name;
+        const metaList = [];
+        if (eventData.formTitle && eventData.formTitle !== eventData.name && eventData.name) {
+            metaList.push(eventData.name);
+        }
+        if (eventData.eventDate || eventData.event_date) metaList.push(eventData.eventDate || eventData.event_date);
+        if (eventData.venue) metaList.push(eventData.venue);
+        
+        document.getElementById('eventMeta').textContent = metaList.join(' · ');
 
         // Fields
         let fieldsHtml = '';
@@ -305,6 +312,7 @@
                 // Replace default event variables
                 shareText = shareText
                     .replace(/\{event_name\}/ig, eventData.name || '')
+                    .replace(/\{form_name\}/ig, eventData.formTitle || '')
                     .replace(/\{reg\}/ig, regNumber || '')
                     .replace(/\{date\}/ig, eventData.eventDate || '')
                     .replace(/\{venue\}/ig, eventData.venue || '');

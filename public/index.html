@@ -232,21 +232,25 @@
           <input type="text" id="evName" placeholder="e.g. Leadership Summit 2026">
         </div>
         <div>
-          <label class="field-label">Date</label>
-          <input type="date" id="evDate">
+          <label class="field-label">Form title (Label for this form)</label>
+          <input type="text" id="evFormTitle" placeholder="e.g. VIP Check-in">
         </div>
       </div>
       <div class="row2">
+        <div>
+          <label class="field-label">Date</label>
+          <input type="date" id="evDate">
+        </div>
         <div>
           <label class="field-label">Venue</label>
           <input type="text" id="evVenue" placeholder="e.g. Hyatt Regency, Pune">
         </div>
+      </div>
+      <div class="row2">
         <div>
           <label class="field-label">WhatsApp group invite link (optional)</label>
           <input type="url" id="evWA" placeholder="https://chat.whatsapp.com/...">
         </div>
-      </div>
-      <div class="row2">
         <div>
           <label class="field-label">Coordinator WhatsApp Number (for alerts)</label>
           <input type="text" id="evCoordinatorWA" placeholder="e.g. 919876543210 (include country code)">
@@ -655,6 +659,7 @@ function updateVariablePanel() {
   let html = `
     <button type="button" class="var-btn" onclick="insertWAVariable('reg')">{reg} (Entry Number)</button>
     <button type="button" class="var-btn" onclick="insertWAVariable('name')">{name} (Attendee Name)</button>
+    <button type="button" class="var-btn" onclick="insertWAVariable('form_name')">{form_name}</button>
     <button type="button" class="var-btn" onclick="insertWAVariable('event_name')">{event_name}</button>
     <button type="button" class="var-btn" onclick="insertWAVariable('date')">{date}</button>
     <button type="button" class="var-btn" onclick="insertWAVariable('venue')">{venue}</button>
@@ -711,6 +716,7 @@ function syncFormToActive(){
   const ev = store.events[store.activeId];
   if(!ev) return;
   ev.name = document.getElementById('evName').value;
+  ev.formTitle = document.getElementById('evFormTitle').value;
   ev.date = document.getElementById('evDate').value;
   ev.venue = document.getElementById('evVenue').value;
   ev.wa = document.getElementById('evWA').value;
@@ -735,6 +741,7 @@ function syncFormToActive(){
 
 function populateFormFromEvent(ev){
   document.getElementById('evName').value = ev.name === 'Untitled event' ? '' : ev.name;
+  document.getElementById('evFormTitle').value = ev.formTitle || '';
   document.getElementById('evDate').value = ev.date || '';
   document.getElementById('evVenue').value = ev.venue || '';
   document.getElementById('evWA').value = ev.wa || '';
@@ -793,7 +800,8 @@ function renderEventList(){
     chip.className = 'event-chip' + (id === store.activeId ? ' active' : '');
     chip.onclick = () => selectEvent(id);
     const canDelete = store.order.length > 1;
-    chip.innerHTML = `<span class="dot"></span><span>${escapeHtml(ev.name || 'Untitled event')}</span>` +
+    const displayName = ev.formTitle || ev.name || 'Untitled event';
+    chip.innerHTML = `<span class="dot"></span><span>${escapeHtml(displayName)}</span>` +
       (canDelete ? `<button class="rm-ev" title="Delete event">✕</button>` : '');
     if(canDelete){
       chip.querySelector('.rm-ev').onclick = (e) => { e.stopPropagation(); deleteEvent(id); };
@@ -1061,7 +1069,9 @@ function removeField(i){
 }
 
 function buildPreview(){
-  const name = document.getElementById('evName').value.trim() || 'Untitled event';
+  const evName = document.getElementById('evName').value.trim() || 'Untitled event';
+  const formTitle = document.getElementById('evFormTitle').value.trim();
+  const displayName = formTitle || evName;
   const date = document.getElementById('evDate').value;
   const venue = document.getElementById('evVenue').value.trim();
   const meta = [date, venue].filter(Boolean).join(' · ');
@@ -1081,7 +1091,10 @@ function buildPreview(){
     html += `<img class="pf-header-img" src="${ev.header.imageData}" alt="">`;
   }
 
-  html += `<div class="ev-name">${escapeHtml(name)}</div>`;
+  html += `<div class="ev-name">${escapeHtml(displayName)}</div>`;
+  if (formTitle && evName && formTitle !== evName) {
+    html += `<div class="ev-meta" style="margin-bottom:4px; font-weight:500;">${escapeHtml(evName)}</div>`;
+  }
   html += `<div class="ev-meta">${escapeHtml(meta || 'Date & venue')}</div>`;
   fields.forEach(f => {
     if(f.hidden) return;
@@ -1131,7 +1144,7 @@ async function generate(){
   try {
     if (window.db) {
       await window.db.collection("events").doc(slug).set({
-        name: ev.name, slug: ev.slug, eventDate: ev.date, venue: ev.venue, whatsappGroupLink: ev.wa,
+        name: ev.name, slug: ev.slug, formTitle: ev.formTitle || null, eventDate: ev.date, venue: ev.venue, whatsappGroupLink: ev.wa,
         coordinatorWA: ev.coordinatorWA || null,
         waTemplate: ev.waTemplate || null,
         header: ev.header, fields: ev.fields,
@@ -1195,7 +1208,7 @@ function showToast(msg){
 }
 
 function wireLiveSync(){
-  ['evName','evDate','evVenue','evWA','evCoordinatorWA'].forEach(id => {
+  ['evName','evFormTitle','evDate','evVenue','evWA','evCoordinatorWA'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       syncFormToActive();
       buildPreview();
