@@ -502,52 +502,79 @@
         editingIdx = idx;
         const entry = entries[idx];
         const body = document.getElementById('editModalBody');
-
-        // Build a lookup map: field name -> field definition
-        const fieldDefMap = {};
-        eventFields.forEach(f => { fieldDefMap[f.name] = f; });
-
         let html = '';
-        allKeys.forEach(k => {
-            const val = String(entry[k] || '');
-            const def = fieldDefMap[k];
-            const type = def ? def.type : 'text';
 
-            // Conditional field support
-            const depOn  = def && def.dependsOn  ? def.dependsOn  : '';
-            const depVal = def && def.dependsValue ? def.dependsValue : '';
+        // ── System fields (read-only) ──
+        ['Registration Number', 'Timestamp'].forEach(k => {
+            const val = escH(String(entry[k] || ''));
+            html += `<div class="edit-field-row">
+                <label>${escH(k)}</label>
+                <input type="text" data-key="${escH(k)}" value="${val}" readonly
+                    style="background:#f8fafc;color:var(--muted);cursor:not-allowed;">
+            </div>`;
+        });
+
+        // ── User-defined fields from eventFields ──
+        // Using eventFields guarantees dependent fields are always rendered.
+        const fieldsToRender = eventFields.length > 0 ? eventFields : [];
+
+        fieldsToRender.forEach(f => {
+            const k = f.name;
+            const type = f.type || 'text';
+
+            // fullname-split produces 3 sub-inputs
+            if (type === 'fullname-split') {
+                [{sub: ' - Name', label: k + ' - Name'},
+                 {sub: ' - Middle', label: k + ' - Middle'},
+                 {sub: ' - Surname', label: k + ' - Surname'}].forEach(part => {
+                    const subKey = k + part.sub;
+                    const subVal = escH(String(entry[subKey] || ''));
+                    html += `<div class="edit-field-row">
+                        <label>${escH(part.label)}</label>
+                        <input type="text" data-key="${escH(subKey)}" value="${subVal}" oninput="checkEditConditions()">
+                    </div>`;
+                });
+                return;
+            }
+
+            // Conditional / dependent field support
+            const depOn  = f.dependsOn  || '';
+            const depVal = f.dependsValue || '';
             let depAttrs = '';
             let rowStyle = '';
             if (depOn && depVal) {
+                // Check what the parent's CURRENT value is in this entry
+                // The parent might have had its value merged (e.g. Location = actual city name)
+                // so we also check if the parent dropdown's current value matches
                 const parentVal = String(entry[depOn] || '').toLowerCase();
                 const shouldShow = parentVal === depVal.toLowerCase();
                 depAttrs = `data-dep-on="${escH(depOn)}" data-dep-val="${escH(depVal.toLowerCase())}"`;
-                rowStyle = shouldShow ? '' : 'display:none;';
+                rowStyle  = shouldShow ? '' : 'display:none;';
             }
 
+            const val = String(entry[k] || '');
             html += `<div class="edit-field-row" ${depAttrs} style="${rowStyle}"><label>${escH(k)}</label>`;
 
             if (type === 'gender') {
-                const genderOpts = ['Male', 'Female', 'Other', 'Prefer not to say'];
                 html += `<select data-key="${escH(k)}" onchange="checkEditConditions()">`;
-                genderOpts.forEach(o => {
-                    html += `<option value="${escH(o)}" ${val === o ? 'selected' : ''}>${escH(o)}</option>`;
+                ['Male','Female','Other','Prefer not to say'].forEach(o => {
+                    html += `<option value="${escH(o)}" ${val===o?'selected':''}>${escH(o)}</option>`;
                 });
                 html += `</select>`;
 
-            } else if (type === 'select' && def && def.options && def.options.length) {
+            } else if ((type === 'select') && f.options && f.options.length) {
                 html += `<select data-key="${escH(k)}" onchange="checkEditConditions()">`;
                 html += `<option value="">— select —</option>`;
-                def.options.forEach(o => {
-                    html += `<option value="${escH(o)}" ${val === o ? 'selected' : ''}>${escH(o)}</option>`;
+                f.options.forEach(o => {
+                    html += `<option value="${escH(o)}" ${val===o?'selected':''}>${escH(o)}</option>`;
                 });
                 html += `</select>`;
 
             } else if (type === 'address') {
                 html += `<textarea data-key="${escH(k)}" rows="3" oninput="checkEditConditions()">${escH(val)}</textarea>`;
 
-            } else if (k === 'Timestamp' || k === 'Registration Number') {
-                html += `<input type="text" data-key="${escH(k)}" value="${escH(val)}" readonly style="background:#f8fafc; color:var(--muted); cursor:not-allowed;">`;
+            } else if (type === 'percentage') {
+                html += `<input type="number" step="0.01" data-key="${escH(k)}" value="${escH(val)}" oninput="checkEditConditions()">`;
 
             } else {
                 html += `<input type="text" data-key="${escH(k)}" value="${escH(val)}" oninput="checkEditConditions()">`;
@@ -556,9 +583,21 @@
             html += `</div>`;
         });
 
+        // Fallback: if eventFields is empty, show allKeys (plain text inputs)
+        if (fieldsToRender.length === 0) {
+            allKeys.forEach(k => {
+                if (['Registration Number','Timestamp'].includes(k)) return;
+                const val = escH(String(entry[k] || ''));
+                html += `<div class="edit-field-row">
+                    <label>${escH(k)}</label>
+                    <input type="text" data-key="${escH(k)}" value="${val}">
+                </div>`;
+            });
+        }
+
         body.innerHTML = html;
         document.getElementById('editModal').classList.add('open');
-        const first = body.querySelector('input:not([readonly]), select, textarea');
+        const first = body.querySelector('input:not([readonly]),select,textarea');
         if (first) setTimeout(() => first.focus(), 50);
     }
 
@@ -568,12 +607,9 @@
         body.querySelectorAll('.edit-field-row[data-dep-on]').forEach(function(row) {
             const depOn  = row.getAttribute('data-dep-on');
             const depVal = (row.getAttribute('data-dep-val') || '').toLowerCase();
-            // Find the parent control (could be input or select)
             const parentEl = body.querySelector('[data-key="' + depOn + '"]');
             const currentVal = parentEl ? (parentEl.value || '').toLowerCase() : '';
-            const shouldShow = currentVal === depVal;
-            row.style.display = shouldShow ? 'block' : 'none';
-            // Toggle required-ish visual only (no actual required attr needed in modal)
+            row.style.display = (currentVal === depVal) ? 'block' : 'none';
         });
     }
 
