@@ -195,10 +195,11 @@
             }
 
             const isConditional = initialDisplay !== '';
-            const reqAttr = isConditional ? '' : 'required';
+            const isReq = f.required !== false; // Default to true if undefined for backward compatibility
+            const reqAttr = (!isConditional && isReq) ? 'required' : '';
             const idAttr = `name="${escapeHtml(f.name)}" ${reqAttr}`;
 
-            fieldsHtml += `<div class="pf-field" data-dep-on="${escapeHtml(depOnAttr)}" data-dep-val="${escapeHtml(depValAttr)}" style="${initialDisplay}"><label>${escapeHtml(f.name)}</label>`;
+            fieldsHtml += `<div class="pf-field" data-req="${isReq ? 'true' : 'false'}" data-dep-on="${escapeHtml(depOnAttr)}" data-dep-val="${escapeHtml(depValAttr)}" style="${initialDisplay}"><label>${escapeHtml(f.name)}${isReq ? ' <span style="color:red">*</span>' : ''}</label>`;
             
             if (f.type === 'select' || f.type === 'gender') {
                 let opts = f.type === 'gender' ? ['Male', 'Female', 'Other', 'Prefer not to say'] : (f.options || []);
@@ -233,6 +234,7 @@
             regForm.querySelectorAll('.pf-field[data-dep-on]').forEach(function(wrap) {
                 const depOn = wrap.getAttribute('data-dep-on');
                 const depVal = (wrap.getAttribute('data-dep-val') || '').toLowerCase();
+                const isReq = wrap.getAttribute('data-req') === 'true';
                 if (!depOn) return;
 
                 let currentVal = '';
@@ -245,7 +247,7 @@
                 wrap.style.display = shouldShow ? 'block' : 'none';
                 wrap.querySelectorAll('.pf-input').forEach(function(inp) {
                     if (shouldShow) {
-                        if (!inp.name.includes('- Middle')) inp.setAttribute('required', 'required');
+                        if (!inp.name.includes('- Middle') && isReq) inp.setAttribute('required', 'required');
                     } else {
                         inp.removeAttribute('required');
                         if (inp.tagName === 'SELECT') inp.selectedIndex = 0;

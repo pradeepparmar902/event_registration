@@ -1043,6 +1043,11 @@ function fieldEditHtml(f, i){
     </div>
     
     <div style="background:#f1f5f9; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.85rem; text-align: left;">
+      <label style="display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer; margin-bottom: 8px;">
+         <input type="checkbox" id="editRequired-${i}" ${f.required !== false ? 'checked' : ''}>
+         Required field (mandatory)
+      </label>
+      <div style="border-top: 1px solid #e2e8f0; margin-bottom: 8px;"></div>
       <label style="display:flex; align-items:center; gap:5px; font-weight:600; cursor:pointer;">
          <input type="checkbox" id="editCondToggle-${i}" ${f.dependsOn ? 'checked' : ''} onchange="document.getElementById('editCondWrap-${i}').style.display = this.checked ? 'block' : 'none';">
          Show this field conditionally
@@ -1121,6 +1126,8 @@ function saveFieldEdit(i){
   } else {
     delete f.options;
   }
+
+  f.required = document.getElementById(`editRequired-${i}`).checked;
 
   // Handle conditional logic
   const isCond = document.getElementById(`editCondToggle-${i}`).checked;
