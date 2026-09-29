@@ -241,6 +241,55 @@
             justify-content: flex-end;
         }
         .modal-footer .btn-sm { padding: 6px 14px; font-size: 0.82rem; }
+
+        /* ── Row action buttons ── */
+        td.action-cell { padding: 6px 10px; white-space: nowrap; }
+        .row-actions { display: flex; gap: 5px; }
+        .btn-icon {
+            width: 30px; height: 30px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-icon:hover { background: #f1f5f9; }
+        .btn-icon.del:hover { background: #fee2e2; border-color: #fca5a5; }
+
+        /* ── Edit Entry Modal ── */
+        .edit-modal { width: 520px; }
+        .edit-field-row {
+            margin-bottom: 14px;
+        }
+        .edit-field-row label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .edit-field-row input,
+        .edit-field-row select,
+        .edit-field-row textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-family: inherit;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .edit-field-row input:focus,
+        .edit-field-row select:focus,
+        .edit-field-row textarea:focus { border-color: var(--emerald); }
+        .btn-danger { background: #ef4444; color: white; border: none; }
+        .btn-danger:hover { background: #dc2626; }
     </style>
 </head>
 <body>
@@ -289,6 +338,22 @@
             <button class="btn btn-ghost btn-sm" onclick="selectAllCols()">Select All</button>
             <button class="btn btn-ghost btn-sm" onclick="deselectAllCols()">Deselect All</button>
             <button class="btn btn-sm" onclick="applyColumnSettings()">✔ Apply</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Entry Modal -->
+<div class="modal-backdrop" id="editModal">
+    <div class="modal edit-modal">
+        <div class="modal-header">
+            <h3>✏ Edit Registration</h3>
+            <button class="modal-close" onclick="closeEditModal()">✕</button>
+        </div>
+        <div class="modal-body" id="editModalBody">
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost btn-sm" onclick="closeEditModal()">Cancel</button>
+            <button class="btn btn-sm" onclick="saveEdit()">💾 Save Changes</button>
         </div>
     </div>
 </div>
@@ -413,7 +478,7 @@
         const newRemark = inp.value.trim();
         const docId = entryDocIds[idx];
         if (!docId) return;
-        if (newRemark === (entryRemarks[idx] || '')) return; // no change
+        if (newRemark === (entryRemarks[idx] || '')) return;
         entryRemarks[idx] = newRemark;
         inp.classList.add('saving');
         try {
@@ -426,6 +491,82 @@
             alert('Failed to save remark: ' + e.message);
         }
     }
+
+    /* ── Edit Entry ── */
+    let editingIdx = null;
+
+    function openEditModal(idx) {
+        editingIdx = idx;
+        const entry = entries[idx];
+        const body = document.getElementById('editModalBody');
+        let html = '';
+        allKeys.forEach(k => {
+            const val = escH(String(entry[k] || ''));
+            html += `<div class="edit-field-row">
+                <label>${escH(k)}</label>
+                <input type="text" data-key="${escH(k)}" value="${val}">
+            </div>`;
+        });
+        body.innerHTML = html;
+        document.getElementById('editModal').classList.add('open');
+        // Focus first input
+        const first = body.querySelector('input');
+        if (first) setTimeout(() => first.focus(), 50);
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.remove('open');
+        editingIdx = null;
+    }
+
+    async function saveEdit() {
+        if (editingIdx === null) return;
+        const docId = entryDocIds[editingIdx];
+        if (!docId) return;
+        const inputs = document.querySelectorAll('#editModalBody input');
+        const updatedData = {};
+        inputs.forEach(inp => {
+            updatedData[inp.getAttribute('data-key')] = inp.value.trim();
+        });
+        try {
+            await db.collection('registrations').doc(docId).update({ data: updatedData });
+            // Update in-memory entry
+            Object.assign(entries[editingIdx], updatedData);
+            closeEditModal();
+            renderTable();
+        } catch(e) {
+            alert('Failed to save changes: ' + e.message);
+        }
+    }
+
+    /* ── Delete Entry ── */
+    async function deleteEntry(idx, btn) {
+        const docId = entryDocIds[idx];
+        if (!docId) return;
+        const name = entries[idx]['Full name - Name'] || entries[idx]['Full name'] || Object.values(entries[idx])[2] || 'this entry';
+        if (!confirm(`Are you sure you want to permanently delete "${name}"? This cannot be undone.`)) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+            await db.collection('registrations').doc(docId).delete();
+            // Remove from memory
+            entries.splice(idx, 1);
+            entryDocIds.splice(idx, 1);
+            entryStatuses.splice(idx, 1);
+            entryRemarks.splice(idx, 1);
+            renderTable();
+        } catch(e) {
+            btn.disabled = false;
+            btn.textContent = '🗑';
+            alert('Failed to delete: ' + e.message);
+        }
+    }
+
+    // Close edit modal on backdrop click
+    document.getElementById('editModal').addEventListener('click', function(e) {
+        if (e.target === this) closeEditModal();
+    });
+
 
     /* ── Render Table ── */
     function renderTable() {
@@ -445,6 +586,8 @@
         });
 
         let html = '<table id="regTable"><thead><tr>';
+        // Fixed Actions column
+        html += `<th style="min-width:80px; text-align:center;"><span class="th-label" style="justify-content:center;">Actions</span></th>`;
         // Fixed Status column (not user-orderable)
         const statusOpts = ['Pending','Approved','Disapproved','Need Info'];
         const curStatusFilter = activeFilters['__status__'] || '';
@@ -487,6 +630,13 @@
             const statusMatch = !activeFilters['__status__'] || status === activeFilters['__status__'];
             const visible = isRowVisible(entry) && statusMatch;
             html += `<tr class="${visible ? '' : 'hidden-row'}" data-idx="${idx}">`;
+            // Actions cell
+            html += `<td class="action-cell">
+                <div class="row-actions">
+                    <button class="btn-icon" title="Edit" onclick="openEditModal(${idx})">✏</button>
+                    <button class="btn-icon del" title="Delete" onclick="deleteEntry(${idx}, this)">🗑</button>
+                </div>
+            </td>`;
             // Status cell
             html += `<td class="status-cell">
                 <div class="status-wrap">
