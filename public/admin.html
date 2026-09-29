@@ -105,7 +105,7 @@
             let html = '<table><thead><tr><th>Email / Phone</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
             
             if (snapshot.empty) {
-                html += '<tr><td colspan="4" style="text-align:center;">No users found.</td></tr>';
+                html += '<tr><td colspan="4" style="text-align:center; padding: 30px; color: var(--muted);"><strong>No users found.</strong><br><br>New users will only appear here <em>after</em> they try logging into the Form Builder for the first time.</td></tr>';
             } else {
                 snapshot.forEach(doc => {
                     const data = doc.data();
