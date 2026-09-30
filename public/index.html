@@ -1293,6 +1293,12 @@ function buildPreview(){
     html += `<div class="ev-meta" style="margin-bottom:4px; font-weight:500;">${escapeHtml(evName)}</div>`;
   }
   html += `<div class="ev-meta">${escapeHtml(meta || 'Date & venue')}</div>`;
+  
+  const inst = document.getElementById('evInstructions').value.trim();
+  if (inst) {
+      html += `<div style="margin-bottom: 24px; padding: 12px; background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 0.8rem; line-height: 1.4;">${escapeHtml(inst).replace(/\n/g, '<br>')}</div>`;
+  }
+
   fields.forEach(f => {
     if(f.hidden) return;
     if(f.type === 'select'){
@@ -1406,7 +1412,7 @@ function showToast(msg){
 }
 
 function wireLiveSync(){
-  ['evName','evFormTitle','evDate','evVenue','evWA','evCoordinatorWA'].forEach(id => {
+  ['evName','evFormTitle','evDate','evVenue','evInstructions','evWA','evCoordinatorWA'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       syncFormToActive();
       buildPreview();
