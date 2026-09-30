@@ -171,7 +171,14 @@
         if (eventData.formTitle && eventData.formTitle !== eventData.name && eventData.name) {
             metaList.push(eventData.name);
         }
-        if (eventData.eventDate || eventData.event_date) metaList.push(eventData.eventDate || eventData.event_date);
+        if (eventData.eventDate || eventData.event_date) {
+            let rawDate = eventData.eventDate || eventData.event_date;
+            if (rawDate && rawDate.includes('-')) {
+                const parts = rawDate.split('-');
+                if (parts.length === 3) rawDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            metaList.push(rawDate);
+        }
         if (eventData.venue) metaList.push(eventData.venue);
         
         document.getElementById('eventMeta').textContent = metaList.join(' · ');

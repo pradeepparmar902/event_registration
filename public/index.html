@@ -1269,7 +1269,11 @@ function buildPreview(){
   const evName = document.getElementById('evName').value.trim() || 'Untitled event';
   const formTitle = document.getElementById('evFormTitle').value.trim();
   const displayName = formTitle || evName;
-  const date = document.getElementById('evDate').value;
+  let date = document.getElementById('evDate').value;
+  if (date && date.includes('-')) {
+      const parts = date.split('-');
+      if (parts.length === 3) date = `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
   const venue = document.getElementById('evVenue').value.trim();
   const meta = [date, venue].filter(Boolean).join(' · ');
 
