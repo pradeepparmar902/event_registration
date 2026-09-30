@@ -268,6 +268,7 @@
         }
         regForm.addEventListener('change', checkConditions);
         regForm.addEventListener('input', checkConditions);
+        checkConditions(); // Run once on load to enforce correct state
 
         // Initialize intl-tel-input for any tel-country fields
         setTimeout(function() {

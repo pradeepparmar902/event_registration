@@ -1125,7 +1125,18 @@ function saveFieldEdit(i){
   const f = fields[i];
   const name = document.getElementById(`editName-${i}`).value.trim();
   if(!name){ showToast('Field name can\'t be empty'); return; }
+  const oldName = f.name;
   f.name = name;
+  
+  // If the field name changed, update any fields that depend on it
+  if (oldName && oldName !== name) {
+      fields.forEach(otherF => {
+          if (otherF.dependsOn === oldName) {
+              otherF.dependsOn = name;
+          }
+      });
+  }
+
   if(!f.locked) f.type = document.getElementById(`editType-${i}`).value;
   if(f.type === 'select'){
     const opts = parseOptionsText(document.getElementById(`editOptions-${i}`).value);
