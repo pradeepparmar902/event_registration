@@ -1335,11 +1335,15 @@ function escapeHtml(s){
 
 async function generate(){
   buildPreview();
-  const name = document.getElementById('evName').value.trim() || 'Untitled event';
-  const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'event';
-  let slug = `${baseSlug}-${store.activeId}`;
-
   const ev = store.events[store.activeId];
+  const name = document.getElementById('evName').value.trim() || 'Untitled event';
+  
+  let slug = ev.slug;
+  if (!slug) {
+      const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'event';
+      slug = `${baseSlug}-${store.activeId}`;
+  }
+
   ev.generated = true;
   ev.slug = slug;
   syncFormToActive();
@@ -1371,8 +1375,7 @@ async function generate(){
 function showQR(slug, name){
   // Generate the URL (handles GitHub Pages subdirectory properly)
   const base = window.location.href.split('?')[0].replace(/index\.html$/, '').replace(/\/$/, '');
-  const cacheBuster = Date.now();
-  const payload = base + `/attendee.html?slug=${slug}&v=${cacheBuster}`;
+  const payload = base + `/attendee.html?slug=${slug}`;
   document.getElementById('qrCard').style.display = 'block';
   document.getElementById('qrSub').innerHTML = `Links to the ${escapeHtml(name || 'event')} registration form:<br><br><a href="${payload}" target="_blank" style="color:var(--emerald); font-weight:bold; word-break:break-all;">${payload}</a>`;
   const box = document.getElementById('qrbox');
