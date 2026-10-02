@@ -495,9 +495,10 @@ function initAuth() {
       const adminEmail = 'pradeepparmar902@yahoo.com';
       let isSuperAdmin = (user.email === adminEmail);
       
+      let docSnap = null;
       try {
          const userDocRef = window.db.collection('users').doc(user.uid);
-         const docSnap = await userDocRef.get();
+         docSnap = await userDocRef.get();
          if (!docSnap.exists) {
             // Even the hardcoded superadmin gets a document now, just to be safe
             await userDocRef.set({
@@ -527,6 +528,41 @@ function initAuth() {
             document.getElementById('pendingModal').style.display = 'flex';
             return;
          }
+      }
+
+      // LOAD BUILDER DATA FROM FIRESTORE
+      if (docSnap && docSnap.exists) {
+          const userData = docSnap.data();
+          let needsReload = false;
+          if (userData.workspaces_json) {
+              workspaces = JSON.parse(userData.workspaces_json);
+              localStorage.setItem('form_workspaces', userData.workspaces_json);
+              needsReload = true;
+          }
+          if (userData.active_workspace_id) {
+              activeWsId = userData.active_workspace_id;
+              localStorage.setItem('active_workspace_id', activeWsId);
+              STORE_KEY = activeWsId === 'default' ? 'eventFormBuilderStore' : ('eventFormBuilderStore_' + activeWsId);
+              needsReload = true;
+          }
+          Object.keys(userData).forEach(k => {
+              if (k.startsWith('store_')) {
+                  const wsKey = k.replace('store_', '');
+                  const localKey = wsKey === 'default' ? 'eventFormBuilderStore' : ('eventFormBuilderStore_' + wsKey);
+                  localStorage.setItem(localKey, userData[k]);
+                  needsReload = true;
+              }
+          });
+          
+          if (needsReload) {
+              store = { events:{}, order:[], activeId:null };
+              loadStore();
+              renderWorkspaceSelect();
+              renderEventList();
+              populateFormFromEvent(store.events[store.activeId]);
+              buildPreview();
+              updateVariablePanel();
+          }
       }
 
       document.getElementById('pendingModal').style.display = 'none';
@@ -694,6 +730,7 @@ function createNewWorkspace() {
       renderEventList();
       populateFormFromEvent(store.events[store.activeId]);
       buildPreview();
+      syncToFirestore();
   }
 }
 
@@ -704,6 +741,7 @@ function renameWorkspace() {
       currentWs.name = name.trim();
       localStorage.setItem('form_workspaces', JSON.stringify(workspaces));
       renderWorkspaceSelect();
+      syncToFirestore();
   }
 }
 
@@ -718,6 +756,7 @@ function switchWorkspace() {
   renderEventList();
   populateFormFromEvent(store.events[store.activeId]);
   buildPreview();
+  syncToFirestore();
 }
 
 function defaultFields(){
@@ -751,7 +790,23 @@ function loadStore(){
   }
   if(!store.activeId || !store.events[store.activeId]) store.activeId = store.order[0];
 }
-function saveStore(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }catch(e){} }
+function saveStore(){ 
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }catch(e){} 
+  syncToFirestore();
+}
+
+async function syncToFirestore() {
+   if (!currentUser || !window.db) return;
+   const wsKey = activeWsId === 'default' ? 'default' : activeWsId;
+   const updates = {
+       [`store_${wsKey}`]: JSON.stringify(store),
+       workspaces_json: JSON.stringify(workspaces),
+       active_workspace_id: activeWsId
+   };
+   try {
+       await window.db.collection('users').doc(currentUser.uid).update(updates);
+   } catch(e) {}
+}
 
 function updateVariablePanel() {
   const panel = document.getElementById('variablePanel');
