@@ -306,8 +306,11 @@
         <button class="btn btn-ghost" onclick="refreshData()" title="Refresh data">
             <span id="refreshIcon">🔄</span> Refresh
         </button>
+        <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); display:none;" id="bulkDeleteBtn" onclick="deleteSelected()">
+            🗑 Delete Selected
+        </button>
         <a href="index.html" class="btn btn-outline">← Back to Form Builder</a>
-        <button class="btn" onclick="exportCSV()" id="exportBtn" disabled>⬇ Export to CSV</button>
+        <button class="btn" onclick="exportCSV()" id="exportBtn" disabled>⬇ Export CSV (All)</button>
     </div>
 </div>
 
@@ -708,6 +711,8 @@
         });
 
         let html = '<table id="regTable"><thead><tr>';
+        // Select All Checkbox
+        html += `<th style="width: 40px; text-align:center;"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th>`;
         // Fixed Actions column
         html += `<th style="min-width:80px; text-align:center;"><span class="th-label" style="justify-content:center;">Actions</span></th>`;
         // Fixed Status column (not user-orderable)
@@ -752,6 +757,8 @@
             const statusMatch = !activeFilters['__status__'] || status === activeFilters['__status__'];
             const visible = isRowVisible(entry) && statusMatch;
             html += `<tr class="${visible ? '' : 'hidden-row'}" data-idx="${idx}">`;
+            // Checkbox cell
+            html += `<td style="text-align:center;"><input type="checkbox" class="row-checkbox" value="${idx}" onchange="updateSelection()"></td>`;
             // Actions cell
             html += `<td class="action-cell">
                 <div class="row-actions">
@@ -946,20 +953,90 @@
         return { order: [], visible: {} };
     }
 
+    function getSelectedIndices() {
+        const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+        return Array.from(checkboxes).map(cb => parseInt(cb.value));
+    }
+
+    function toggleSelectAll(cb) {
+        document.querySelectorAll('.row-checkbox').forEach(box => {
+            const tr = box.closest('tr');
+            if (tr && !tr.classList.contains('hidden-row')) {
+                box.checked = cb.checked;
+            }
+        });
+        updateSelection();
+    }
+
+    function updateSelection() {
+        const count = getSelectedIndices().length;
+        const btnDelete = document.getElementById('bulkDeleteBtn');
+        const btnExport = document.getElementById('exportBtn');
+        
+        if (count > 0) {
+            btnDelete.style.display = 'inline-block';
+            btnDelete.textContent = `🗑 Delete Selected (${count})`;
+            btnExport.textContent = `⬇ Export CSV (${count} Selected)`;
+        } else {
+            btnDelete.style.display = 'none';
+            btnExport.textContent = '⬇ Export CSV (All)';
+        }
+    }
+
+    async function deleteSelected() {
+        const indices = getSelectedIndices();
+        if (indices.length === 0) return;
+        if (!confirm(`Are you sure you want to completely delete ${indices.length} registration(s)?\nThis cannot be undone.`)) return;
+
+        const btn = document.getElementById('bulkDeleteBtn');
+        btn.textContent = 'Deleting...';
+        btn.disabled = true;
+
+        try {
+            await Promise.all(indices.map(async idx => {
+                const docId = entryDocIds[idx];
+                if (docId) await db.collection('registrations').doc(docId).delete();
+            }));
+
+            indices.sort((a,b) => b - a).forEach(idx => {
+                entries.splice(idx, 1);
+                entryDocIds.splice(idx, 1);
+                entryStatuses.splice(idx, 1);
+                entryRemarks.splice(idx, 1);
+            });
+
+            document.getElementById('selectAllCheckbox').checked = false;
+            updateSelection();
+            renderTable();
+        } catch(e) {
+            alert('Failed to delete some entries: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            updateSelection();
+        }
+    }
+
     /* ── Export CSV (filtered rows, visible cols only) ── */
     function exportCSV() {
         if (entries.length === 0) return;
         const visibleKeys = colOrder.filter(k => colVisible[k]);
-        const statusF = activeFilters['__status__'] || '';
-        const visibleEntries = entries.filter((e, i) => {
-            const statusMatch = !statusF || (entryStatuses[i] || 'Pending') === statusF;
-            return isRowVisible(e) && statusMatch;
-        });
+        
+        let targetEntries = [];
+        const indices = getSelectedIndices();
+        
+        if (indices.length > 0) {
+            targetEntries = indices.map(idx => ({ entry: entries[idx], origIdx: idx }));
+        } else {
+            const statusF = activeFilters['__status__'] || '';
+            targetEntries = entries.map((e, i) => ({ entry: e, origIdx: i })).filter(({entry, origIdx}) => {
+                const statusMatch = !statusF || (entryStatuses[origIdx] || 'Pending') === statusF;
+                return isRowVisible(entry) && statusMatch;
+            });
+        }
 
         const allCols = ['Status', 'Remarks', ...visibleKeys];
         let csv = allCols.map(k => `"${String(k).replace(/"/g,'""')}"`).join(',') + '\n';
-        visibleEntries.forEach((entry, i) => {
-            const origIdx = entries.indexOf(entry);
+        targetEntries.forEach(({entry, origIdx}) => {
             const status = entryStatuses[origIdx] || 'Pending';
             const remark = entryRemarks[origIdx] || '';
             const row = [status, remark, ...visibleKeys.map(k => String(entry[k] || ''))];
