@@ -1428,6 +1428,7 @@ async function generate(){
   saveStore();
   renderEventList();
   showQR(slug, name);
+  document.getElementById('btnDashboard').style.display = 'inline-block';
   showToast('Form + QR generated!');
 }
 
