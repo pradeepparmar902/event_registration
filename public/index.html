@@ -268,7 +268,10 @@
     </section>
 
     <section>
-      <h2 class="section-title">Registration Number Settings</h2>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+          <h2 class="section-title" style="margin-bottom:0;">Registration Number Settings</h2>
+          <button class="btn btn-outline" style="font-size:0.75rem; padding:4px 8px; color:var(--emerald); border-color:var(--emerald);" onclick="resetCounter()">Reset Sequence Counter</button>
+      </div>
       <div class="row2" style="grid-template-columns: 1fr 1fr 1fr;">
         <div>
           <label class="field-label">Prefix</label>
@@ -1456,6 +1459,28 @@ function downloadQR(){
   a.href = src;
   a.download = 'event-checkin-qr.png';
   a.click();
+}
+
+async function resetCounter() {
+    const ev = store.events[store.activeId];
+    if (!ev || !ev.slug) {
+        showToast('Please generate the form first before resetting the counter.');
+        return;
+    }
+    
+    const startNum = document.getElementById('regStartNum').value || '0001';
+    if (!confirm(`Are you sure you want to reset the registration counter for this event?\n\nThe next attendee will receive registration number ${startNum}.\n\nWARNING: If you haven't deleted the old dashboard entries, this will create DUPLICATE registration numbers!`)) {
+        return;
+    }
+    
+    try {
+        if (window.db) {
+            await window.db.collection('counters').doc(ev.slug).delete();
+            showToast('Counter reset successfully! Next is ' + startNum);
+        }
+    } catch(e) {
+        alert('Failed to reset counter: ' + e.message);
+    }
 }
 
 function resetAll(){
